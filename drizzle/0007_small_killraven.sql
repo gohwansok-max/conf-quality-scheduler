@@ -1,0 +1,1 @@
+ALTER TABLE `quality_notification_logs` MODIFY COLUMN `alertLevel` enum('overdue','urgent','test','report') NOT NULL;
