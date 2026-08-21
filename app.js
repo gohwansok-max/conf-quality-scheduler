@@ -1595,6 +1595,116 @@ function resetAllData() {
 }
 
 // Telegram
+let telegramGroupCandidates = [];
+
+function setTelegramGroupLookupState(message, type = 'info') {
+  const panel = document.getElementById('telegram-group-lookup-panel');
+  const status = document.getElementById('telegram-group-lookup-status');
+  const candidates = document.getElementById('telegram-group-candidates');
+  if (!panel || !status || !candidates) return;
+  const colors = {
+    info: 'text-slate-700 dark:text-slate-200',
+    success: 'text-emerald-700 dark:text-emerald-300',
+    error: 'text-red-600 dark:text-red-300'
+  };
+  panel.classList.remove('hidden');
+  status.className = `text-xs font-semibold ${colors[type] || colors.info}`;
+  status.textContent = message;
+}
+
+function extractTelegramGroupCandidates(updates) {
+  const latestByChatId = new Map();
+  for (const update of updates || []) {
+    const content = update.message || update.edited_message || update.channel_post || update.edited_channel_post || update.my_chat_member || update.chat_member;
+    const chat = content?.chat;
+    if (!chat || !['group', 'supergroup'].includes(chat.type)) continue;
+    const timestamp = Number(content?.date || update.update_id || 0);
+    const candidate = {
+      id: String(chat.id),
+      title: chat.title || '이름 없는 텔레그램 그룹',
+      type: chat.type,
+      timestamp
+    };
+    const existing = latestByChatId.get(candidate.id);
+    if (!existing || candidate.timestamp > existing.timestamp) latestByChatId.set(candidate.id, candidate);
+  }
+  return Array.from(latestByChatId.values()).sort((a, b) => b.timestamp - a.timestamp);
+}
+
+function renderTelegramGroupCandidates() {
+  const container = document.getElementById('telegram-group-candidates');
+  if (!container) return;
+  container.innerHTML = telegramGroupCandidates.map((group, index) => `
+    <button type="button" onclick="applyTelegramGroupChatId(${index})" class="telegram-group-candidate">
+      <span class="telegram-group-candidate-icon"><i data-lucide="users-round" class="w-4 h-4"></i></span>
+      <span class="min-w-0 flex-1 text-left">
+        <span class="telegram-group-candidate-title">${escapeHtml(group.title)}</span>
+        <span class="telegram-group-candidate-id">${escapeHtml(group.id)}</span>
+      </span>
+      <i data-lucide="chevron-right" class="w-4 h-4 shrink-0 text-violet-500"></i>
+    </button>
+  `).join('');
+  lucide.createIcons();
+}
+
+async function findTelegramGroupChatIds() {
+  const tokenInput = document.getElementById('setting-tg-token');
+  const button = document.getElementById('btn-find-telegram-groups');
+  const token = tokenInput?.value.trim() || appState.settings.telegramBotToken;
+  if (!token) {
+    setTelegramGroupLookupState('먼저 Telegram Bot Token을 입력하세요.', 'error');
+    showToast('그룹을 찾으려면 Telegram Bot Token이 필요합니다.', 'error');
+    return;
+  }
+
+  try {
+    if (button) {
+      button.disabled = true;
+      button.classList.add('opacity-60', 'cursor-wait');
+    }
+    setTelegramGroupLookupState('최근 텔레그램 그룹 기록을 찾는 중입니다...', 'info');
+    document.getElementById('telegram-group-candidates').innerHTML = '';
+
+    const response = await fetch(`https://api.telegram.org/bot${token}/getUpdates?limit=100&timeout=0`);
+    const result = await response.json();
+    if (!result.ok) throw new Error(result.description || '텔레그램 업데이트 조회 실패');
+
+    telegramGroupCandidates = extractTelegramGroupCandidates(result.result);
+    if (!telegramGroupCandidates.length) {
+      setTelegramGroupLookupState('최근 기록에서 그룹을 찾지 못했습니다. 그룹에서 /start를 한 번 보낸 뒤 다시 찾으세요.', 'error');
+      return;
+    }
+
+    setTelegramGroupLookupState(`${telegramGroupCandidates.length}개 그룹을 찾았습니다. 알림을 받을 그룹을 선택하세요.`, 'success');
+    renderTelegramGroupCandidates();
+  } catch (error) {
+    console.error('텔레그램 그룹 Chat ID 조회 실패:', error);
+    setTelegramGroupLookupState(`그룹을 찾지 못했습니다: ${error.message || 'Bot Token을 확인하세요.'}`, 'error');
+    showToast('그룹 Chat ID 자동 찾기에 실패했습니다. Bot Token을 확인하세요.', 'error');
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.classList.remove('opacity-60', 'cursor-wait');
+    }
+  }
+}
+
+function applyTelegramGroupChatId(index) {
+  const group = telegramGroupCandidates[index];
+  const token = document.getElementById('setting-tg-token')?.value.trim() || appState.settings.telegramBotToken;
+  const chatIdInput = document.getElementById('setting-tg-chatid');
+  if (!group || !token || !chatIdInput) return;
+
+  chatIdInput.value = group.id;
+  appState.settings.telegramBotToken = token;
+  appState.settings.telegramChatId = group.id;
+  pinTelegramSettings({ telegramBotToken: token, telegramChatId: group.id });
+  saveLocalState();
+  updateTelegramSettingsStatus();
+  setTelegramGroupLookupState(`“${group.title}” 그룹 Chat ID를 적용했습니다. 아래 시험 알림으로 확인하세요.`, 'success');
+  showToast(`“${group.title}” 그룹으로 알림 대상을 변경했습니다.`, 'success');
+}
+
 function saveTelegramSettings() {
   const token = document.getElementById('setting-tg-token').value.trim();
   const chatId = document.getElementById('setting-tg-chatid').value.trim();

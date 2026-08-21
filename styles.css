@@ -541,3 +541,79 @@ tr.table-row-hover:hover {
     padding-bottom: 1rem !important;
   }
 }
+
+/* 텔레그램 그룹 Chat ID 자동 찾기 후보 목록 */
+.telegram-group-candidate {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid #ddd6fe;
+  border-radius: 0.65rem;
+  color: #312e81;
+  background: #ffffff;
+  text-align: left;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+.telegram-group-candidate:hover {
+  border-color: #8b5cf6;
+  background: #f5f3ff;
+}
+
+.telegram-group-candidate:active {
+  transform: scale(0.985);
+}
+
+.telegram-group-candidate-icon {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.6rem;
+  color: #6d28d9;
+  background: #ede9fe;
+}
+
+.telegram-group-candidate-title,
+.telegram-group-candidate-id {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.telegram-group-candidate-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.telegram-group-candidate-id {
+  margin-top: 0.1rem;
+  color: #7c3aed;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.dark .telegram-group-candidate {
+  border-color: #5b21b6;
+  color: #ede9fe;
+  background: #1e293b;
+}
+
+.dark .telegram-group-candidate:hover {
+  border-color: #a78bfa;
+  background: #2e1065;
+}
+
+.dark .telegram-group-candidate-icon {
+  color: #c4b5fd;
+  background: #4c1d95;
+}
+
+.dark .telegram-group-candidate-id {
+  color: #c4b5fd;
+}
