@@ -10,8 +10,9 @@ const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const CHAT_ID = (process.env.TELEGRAM_CHAT_ID || '').trim();
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://hooaeqywrdihninxnvtb.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_3iDGX80MZlMhAPCthcBKDA_TDUHDwhz';
+const DRY_RUN = process.env.DRY_RUN === 'true';
 
-if (!BOT_TOKEN || !CHAT_ID) {
+if ((!BOT_TOKEN || !CHAT_ID) && !DRY_RUN) {
   console.error('❌ 오류: TELEGRAM_BOT_TOKEN 또는 TELEGRAM_CHAT_ID가 설정되지 않았습니다.');
   process.exit(1);
 }
@@ -85,10 +86,11 @@ async function run() {
   const todayStr = getTodayKstStr();
 
   // 클라우드 데이터 로드
-  const [cloudTypes, cloudProducts, cloudHealth] = await Promise.all([
+  const [cloudTypes, cloudProducts, cloudHealth, cloudCertificates] = await Promise.all([
     fetchSupabase('quality_types'),
     fetchSupabase('quality_products'),
-    fetchSupabase('quality_health_certs')
+    fetchSupabase('quality_health_certs'),
+    fetchSupabase('quality_certificates')
   ]);
 
   let types = cloudTypes || [
@@ -115,6 +117,7 @@ async function run() {
     { id: 3, employee_name: '박공정', department: '생산2팀', issued_at: '2025-09-01', expires_at: '2026-09-01', employment_status: 'active', alert_status: 'active' },
     { id: 4, employee_name: '최개발', department: '연구소', issued_at: '2026-03-20', expires_at: '2027-03-20', employment_status: 'active', alert_status: 'active' }
   ];
+  const certificates = cloudCertificates || [];
 
   const overdueProducts = [];
   const urgentProducts = [];
@@ -129,6 +132,27 @@ async function run() {
     if (dDay !== null) {
       if (dDay < 0) overdueProducts.push({ name: p.name, typeName: type.name, deadline, dDay });
       else if (dDay <= 14) urgentProducts.push({ name: p.name, typeName: type.name, deadline, dDay });
+    }
+  });
+
+  // 생산 중이며 알림이 활성화된 제품만 검사합니다.
+  // 제품별로 연결된 성적서 중 가장 최신 검사일이 최근 제조일보다 이전이면 미성적서로 판단합니다.
+  const missingCertificateProducts = [];
+  products.forEach(p => {
+    if (p.production_status === 'stopped' || p.alert_status === 'paused') return;
+    const relatedCertificates = certificates
+      .filter(c => Number(c.product_id) === Number(p.id) && c.inspection_date)
+      .sort((a, b) => String(b.inspection_date).localeCompare(String(a.inspection_date)));
+    const latestCertificate = relatedCertificates[0];
+    const isCurrent = latestCertificate && (!p.last_manufacture_date || String(latestCertificate.inspection_date) >= String(p.last_manufacture_date));
+    if (!isCurrent) {
+      const type = types.find(t => t.id === Number(p.type_id)) || { name: '기타' };
+      missingCertificateProducts.push({
+        name: p.name,
+        typeName: type.name,
+        lastManufactureDate: p.last_manufacture_date || '미입력',
+        latestInspectionDate: latestCertificate?.inspection_date || ''
+      });
     }
   });
 
@@ -167,6 +191,17 @@ async function run() {
     message += `\n`;
   }
 
+  if (missingCertificateProducts.length > 0) {
+    hasAlert = true;
+    message += `📄 <b>[성적서] 최신 성적서 미등록 (${missingCertificateProducts.length}건)</b>\n`;
+    missingCertificateProducts.forEach((p, idx) => {
+      const certificateText = p.latestInspectionDate ? `최신 성적서: ${p.latestInspectionDate}` : '등록된 제품별 성적서 없음';
+      message += `${idx + 1}. <b>${escapeHtml(p.name)}</b> [${escapeHtml(p.typeName)}]\n`;
+      message += `   └ 최근 제조일: ${p.lastManufactureDate} · ${certificateText}\n`;
+    });
+    message += `\n`;
+  }
+
   if (warningHealthCerts.length > 0) {
     hasAlert = true;
     message += `📋 <b>[보건증] 만료 임박/초과 (${warningHealthCerts.length}건)</b>\n`;
@@ -178,12 +213,18 @@ async function run() {
   }
 
   if (!hasAlert) {
-    message += `✅ <b>오늘 기간 초과 또는 마감 임박 품목이 없습니다.</b>\n`;
-    message += `(모든 자가품질검사 및 보건증 일정이 정상 범위 내에 있습니다.)\n\n`;
+    message += `✅ <b>오늘 기간 초과·마감 임박·미성적서 품목이 없습니다.</b>\n`;
+    message += `(자가품질검사·성적서·보건증 일정이 정상 범위 내에 있습니다.)\n\n`;
   }
 
   message += `━━━━━━━━━━━━━━━━━━━━\n`;
   message += `👉 <b>스케줄러 웹앱 바로가기:</b>\nhttps://gohwansok-max.github.io/koenf-quality-scheduler/`;
+
+  if (DRY_RUN) {
+    console.log('🧪 DRY RUN: 텔레그램 전송 없이 아래 메시지를 검증합니다.\n');
+    console.log(message);
+    return;
+  }
 
   const postData = JSON.stringify({
     chat_id: CHAT_ID,
