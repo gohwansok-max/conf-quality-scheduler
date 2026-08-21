@@ -781,10 +781,13 @@ function renderHealthCerts() {
 
 function renderCertificates() {
   const tbody = document.getElementById('certs-table-body');
+  const mobileList = document.getElementById('certificates-mobile-list');
   if (!tbody) return;
 
   if (appState.certificates.length === 0) {
     tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400">보관된 성적서가 없습니다.</td></tr>`;
+    if (mobileList) mobileList.innerHTML = `<div class="mobile-empty-state"><i data-lucide="file-search" class="w-5 h-5"></i><span>보관된 성적서가 없습니다.</span></div>`;
+    lucide.createIcons();
     return;
   }
 
@@ -812,6 +815,32 @@ function renderCertificates() {
       </tr>
     `;
   }).join('');
+
+  if (mobileList) {
+    mobileList.innerHTML = appState.certificates.map(c => {
+      const product = appState.products.find(p => p.id === Number(c.productId));
+      const productName = product ? product.name : '전체/유형공통';
+      const fileName = c.fileName || '성적서.pdf';
+      const createdAt = c.createdAt ? c.createdAt.slice(0, 10) : '-';
+      const fileAction = c.fileUrl
+        ? `<a href="${c.fileUrl}" target="_blank" class="mobile-certificate-primary"><i data-lucide="external-link" class="w-4 h-4"></i><span>열람 · 다운로드</span></a>`
+        : `<button onclick="downloadCertFile(${c.id})" class="mobile-certificate-primary"><i data-lucide="download" class="w-4 h-4"></i><span>다운로드</span></button>`;
+      return `
+        <article class="mobile-certificate-card">
+          <div class="mobile-certificate-head">
+            <span class="mobile-certificate-number" title="${escapeHtml(c.certNumber || '-')}">${escapeHtml(c.certNumber || '-')}</span>
+            <span class="mobile-certificate-date">등록 ${createdAt}</span>
+          </div>
+          <h3 class="mobile-certificate-product" title="${escapeHtml(productName)}">${escapeHtml(productName)}</h3>
+          <p class="mobile-certificate-file" title="${escapeHtml(fileName)}"><i data-lucide="paperclip" class="w-3.5 h-3.5"></i><span>${escapeHtml(fileName)}</span></p>
+          <div class="mobile-certificate-meta"><span>검사일 ${c.inspectionDate || '-'}</span><span>파일 ${c.fileName ? '등록됨' : '미등록'}</span></div>
+          <div class="mobile-certificate-actions">
+            ${fileAction}
+            <button onclick="deleteCert(${c.id})" class="mobile-certificate-delete" aria-label="성적서 삭제"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+          </div>
+        </article>`;
+    }).join('');
+  }
 
   lucide.createIcons();
 }

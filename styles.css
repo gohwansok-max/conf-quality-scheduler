@@ -272,7 +272,7 @@ tr.table-row-hover:hover {
   display: none;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 767px), (pointer: coarse) {
   body {
     background: linear-gradient(180deg, #f8fafc 0%, #f8fafc 55%, #f1f5f9 100%);
   }
@@ -912,7 +912,7 @@ tr.table-row-hover:hover {
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 767px), (pointer: coarse) {
   /* 카드·설명문은 짧게 두 줄까지만, 버튼은 문장 단위로 자연스럽게 줄바꿈합니다. */
   .app-card > div > p,
   .app-card > p {
@@ -945,5 +945,162 @@ tr.table-row-hover:hover {
   .mobile-schedule-meta dd {
     word-break: keep-all;
     overflow-wrap: normal;
+  }
+}
+
+/* 실제 터치 기기는 기기 픽셀 폭이 넓어도 카드 UI를 사용합니다. */
+@media (max-width: 767px), (pointer: coarse) {
+  #dashboard-table-wrap,
+  #view-certificates .overflow-x-auto {
+    display: none !important;
+  }
+
+  #dashboard-mobile-list {
+    display: block !important;
+  }
+
+  #dashboard-mobile-list .mobile-schedule-card {
+    display: block;
+  }
+
+  #certificates-mobile-list {
+    display: grid !important;
+    gap: 0.65rem;
+  }
+
+  .mobile-certificate-card {
+    padding: 0.85rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.8rem;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+
+  .mobile-certificate-head,
+  .mobile-certificate-actions,
+  .mobile-certificate-meta {
+    display: flex;
+    align-items: center;
+  }
+
+  .mobile-certificate-head {
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .mobile-certificate-number {
+    overflow: hidden;
+    color: #2563eb;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-certificate-date {
+    flex: 0 0 auto;
+    color: #94a3b8;
+    font-size: 0.65rem;
+    white-space: nowrap;
+  }
+
+  .mobile-certificate-product {
+    display: -webkit-box;
+    overflow: hidden;
+    margin-top: 0.55rem;
+    color: #0f172a;
+    font-size: 0.86rem;
+    font-weight: 750;
+    line-height: 1.35;
+    word-break: keep-all;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .mobile-certificate-file {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.4rem;
+    color: #64748b;
+    font-size: 0.7rem;
+  }
+
+  .mobile-certificate-file span {
+    overflow: hidden;
+    min-width: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-certificate-meta {
+    gap: 0.5rem;
+    margin-top: 0.65rem;
+    color: #64748b;
+    font-size: 0.66rem;
+    word-break: keep-all;
+  }
+
+  .mobile-certificate-meta span + span::before {
+    margin-right: 0.5rem;
+    color: #cbd5e1;
+    content: '·';
+  }
+
+  .mobile-certificate-actions {
+    gap: 0.45rem;
+    margin-top: 0.75rem;
+  }
+
+  .mobile-certificate-primary {
+    display: inline-flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 2.25rem;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid #bfdbfe;
+    border-radius: 0.58rem;
+    color: #1d4ed8;
+    background: #eff6ff;
+    font-size: 0.72rem;
+    font-weight: 750;
+    white-space: nowrap;
+  }
+
+  .mobile-certificate-delete {
+    display: inline-flex;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #fee2e2;
+    border-radius: 0.58rem;
+    color: #dc2626;
+    background: #fef2f2;
+  }
+
+  .dark .mobile-certificate-card {
+    border-color: #334155;
+    background: #1e293b;
+  }
+
+  .dark .mobile-certificate-product {
+    color: #f8fafc;
+  }
+
+  .dark .mobile-certificate-primary {
+    border-color: #1e40af;
+    color: #bfdbfe;
+    background: #172554;
+  }
+
+  .dark .mobile-certificate-delete {
+    border-color: #7f1d1d;
+    color: #fca5a5;
+    background: #450a0a;
   }
 }
