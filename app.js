@@ -1,6 +1,5 @@
 /**
- * (?)???? ?????? ???? - ?? ????? ????
- * Pure Vanilla JavaScript Single Page Application
+ * (주)코엔에프 자가품질검사 스케줄러 - 메인 자바스크립트
  */
 
 // ==================== 1. IndexedDB File Engine ====================
@@ -28,7 +27,14 @@ async function saveFileToDB(id, fileObj) {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_FILES, 'readwrite');
       const store = tx.objectStore(STORE_FILES);
-      const req = store.put({ id, file: fileObj, name: fileObj.name, type: fileObj.type, size: fileObj.size, savedAt: new Date().toISOString() });
+      const req = store.put({
+        id,
+        file: fileObj,
+        name: fileObj.name,
+        type: fileObj.type,
+        size: fileObj.size,
+        savedAt: new Date().toISOString()
+      });
       req.onsuccess = () => resolve(true);
       req.onerror = () => reject(req.error);
     });
@@ -75,33 +81,33 @@ const STORAGE_KEY = 'koenf_quality_data_v2';
 
 const DEFAULT_DATA = {
   types: [
-    { id: 1, name: '???', intervalMonths: 2, testItems: '???, ????, ????, ???' },
-    { id: 2, name: '?????', intervalMonths: 2, testItems: '???, ????, ???, ?' },
-    { id: 3, name: '?????', intervalMonths: 3, testItems: '???, ????, ??' },
-    { id: 4, name: '??????', intervalMonths: 3, testItems: '????, ???, ???' },
-    { id: 5, name: '??????', intervalMonths: 2, testItems: '???, ????' },
-    { id: 6, name: '????', intervalMonths: 2, testItems: '???, ????, ???' }
+    { id: 1, name: '액상차', intervalMonths: 2, testItems: '세균수, 대장균군, 타르색소, 보존료' },
+    { id: 2, name: '음료베이스', intervalMonths: 2, testItems: '세균수, 대장균군, 보존료, 납' },
+    { id: 3, name: '기타가공품', intervalMonths: 3, testItems: '세균수, 대장균군, 이물' },
+    { id: 4, name: '복합조미식품', intervalMonths: 3, testItems: '타르색소, 보존료, 대장균' },
+    { id: 5, name: '과·채가공품', intervalMonths: 2, testItems: '세균수, 대장균군' },
+    { id: 6, name: '혼합음료', intervalMonths: 2, testItems: '세균수, 대장균군, 보존료' }
   ],
   products: [
-    { id: 1, typeId: 1, name: '???? ?? ??? 30g', intervalMonths: 2, lastManufactureDate: '2026-06-25', memo: '?? ??? ?? ??', productionStatus: 'active', alertStatus: 'active' },
-    { id: 2, typeId: 2, name: '???? ????? ??? 1kg', intervalMonths: 2, lastManufactureDate: '2026-06-10', memo: '?? ??? ??', productionStatus: 'active', alertStatus: 'active' },
-    { id: 3, typeId: 3, name: '???? ??? ???? 500g', intervalMonths: 3, lastManufactureDate: '2026-07-01', memo: 'OEM ?? ??', productionStatus: 'active', alertStatus: 'active' },
-    { id: 4, typeId: 4, name: '???? ???? ??? 2kg', intervalMonths: 3, lastManufactureDate: '2026-08-01', memo: '?? ?? 1??', productionStatus: 'active', alertStatus: 'active' },
-    { id: 5, typeId: 1, name: '???? ??? ??? 1.2kg', intervalMonths: 2, lastManufactureDate: '2026-05-15', memo: '?? ?? ??? ?? ?? ??', productionStatus: 'stopped', stopReason: '?? ?? ??', alertStatus: 'active' },
-    { id: 6, typeId: 2, name: '???? ??? ????? 1kg', intervalMonths: 2, lastManufactureDate: '2026-07-20', memo: '??? ?? ??', productionStatus: 'active', alertStatus: 'active' }
+    { id: 1, typeId: 1, name: '코엔에프 포션 유자차 30g', intervalMonths: 2, lastManufactureDate: '2026-06-25', memo: '주력 수출용 포션 라인', productionStatus: 'active', alertStatus: 'active' },
+    { id: 2, typeId: 2, name: '코엔에프 자몽에이드 베이스 1kg', intervalMonths: 2, lastManufactureDate: '2026-06-10', memo: '카페 납품용 벌크', productionStatus: 'active', alertStatus: 'active' },
+    { id: 3, typeId: 3, name: '코엔에프 레몬밤 추출분말 500g', intervalMonths: 3, lastManufactureDate: '2026-07-01', memo: 'OEM 수탁 생산', productionStatus: 'active', alertStatus: 'active' },
+    { id: 4, typeId: 4, name: '코엔에프 만능간장 베이스 2kg', intervalMonths: 3, lastManufactureDate: '2026-08-01', memo: '소스 라인 1호기', productionStatus: 'active', alertStatus: 'active' },
+    { id: 5, typeId: 1, name: '코엔에프 헛개수 농축액 1.2kg', intervalMonths: 2, lastManufactureDate: '2026-05-15', memo: '원료 수급 비수기 생산 일시 중단', productionStatus: 'stopped', stopReason: '원료 수급 조정', alertStatus: 'active' },
+    { id: 6, typeId: 2, name: '코엔에프 유기농 석류베이스 1kg', intervalMonths: 2, lastManufactureDate: '2026-07-20', memo: '친환경 인증 원료', productionStatus: 'active', alertStatus: 'active' }
   ],
   history: [
-    { id: 1, productId: 1, productName: '???? ?? ??? 30g', manufactureDate: '2026-06-25', previousDate: '2026-04-20', memo: '?? ?? ??', createdAt: '2026-06-25T09:00:00Z' },
-    { id: 2, productId: 2, productName: '???? ????? ??? 1kg', manufactureDate: '2026-06-10', previousDate: '2026-04-10', memo: '?? ?? ??', createdAt: '2026-06-10T09:00:00Z' }
+    { id: 1, productId: 1, productName: '코엔에프 포션 유자차 30g', manufactureDate: '2026-06-25', previousDate: '2026-04-20', memo: '정기 검사 적합', createdAt: '2026-06-25T09:00:00Z' },
+    { id: 2, productId: 2, productName: '코엔에프 자몽에이드 베이스 1kg', manufactureDate: '2026-06-10', previousDate: '2026-04-10', memo: '정기 검사 적합', createdAt: '2026-06-10T09:00:00Z' }
   ],
   healthCerts: [
-    { id: 1, employeeName: '???', department: '?????', issuedAt: '2025-09-10', expiresAt: '2026-09-10', warningDays: 30, memo: '?? ?? ??', employmentStatus: 'active', alertStatus: 'active' },
-    { id: 2, employeeName: '???', department: '??1?', issuedAt: '2025-08-15', expiresAt: '2026-08-15', warningDays: 30, memo: '?? ?? ??', employmentStatus: 'active', alertStatus: 'active' },
-    { id: 3, employeeName: '???', department: '??2?', issuedAt: '2025-09-01', expiresAt: '2026-09-01', warningDays: 30, memo: '?? ?? ??', employmentStatus: 'active', alertStatus: 'active' },
-    { id: 4, employeeName: '???', department: '???', issuedAt: '2026-03-20', expiresAt: '2027-03-20', warningDays: 30, memo: '??? ???', employmentStatus: 'active', alertStatus: 'active' }
+    { id: 1, employeeName: '김품질', department: '품질관리팀', issuedAt: '2025-09-10', expiresAt: '2026-09-10', warningDays: 30, memo: '팀장 정기 검진', employmentStatus: 'active', alertStatus: 'active' },
+    { id: 2, employeeName: '이생산', department: '생산1팀', issuedAt: '2025-08-15', expiresAt: '2026-08-15', warningDays: 30, memo: '포장 라인 반장', employmentStatus: 'active', alertStatus: 'active' },
+    { id: 3, employeeName: '박공정', department: '생산2팀', issuedAt: '2025-09-01', expiresAt: '2026-09-01', warningDays: 30, memo: '살균 공정 담당', employmentStatus: 'active', alertStatus: 'active' },
+    { id: 4, employeeName: '최개발', department: '연구소', issuedAt: '2026-03-20', expiresAt: '2027-03-20', warningDays: 30, memo: '신제품 개발실', employmentStatus: 'active', alertStatus: 'active' }
   ],
   certificates: [
-    { id: 1, certNumber: 'CONF-QC-2026-001', productId: 1, inspectionDate: '2026-06-25', fileName: '2026_06_???_?????.pdf', fileSize: 1048576, memo: '??????? (??)', createdAt: '2026-06-25T10:00:00Z' }
+    { id: 1, certNumber: 'CONF-QC-2026-001', productId: 1, inspectionDate: '2026-06-25', fileName: '2026_06_유자차_시험성적서.pdf', fileSize: 1048576, memo: '한국식품연구원 (적합)', createdAt: '2026-06-25T10:00:00Z' }
   ],
   settings: {
     warningDays: 14,
@@ -162,13 +168,13 @@ function calcDDay(targetDateStr) {
 
 function formatDDay(dDay) {
   if (dDay === null) return '-';
-  if (dDay < 0) return `${Math.abs(dDay)}? ??`;
-  if (dDay === 0) return '?? ??';
+  if (dDay < 0) return `${Math.abs(dDay)}일 초과`;
+  if (dDay === 0) return '오늘 마감';
   return `D-${dDay}`;
 }
 
 function getProductComputed(p) {
-  const type = appState.types.find(t => t.id === Number(p.typeId)) || { name: '???', intervalMonths: p.intervalMonths || 2 };
+  const type = appState.types.find(t => t.id === Number(p.typeId)) || { name: '미분류', intervalMonths: p.intervalMonths || 2 };
   const interval = Number(p.intervalMonths || type.intervalMonths || 2);
   const nextDeadline = calcNextDeadline(p.lastManufactureDate, interval);
   const dDay = calcDDay(nextDeadline);
@@ -203,12 +209,12 @@ function getHealthCertComputed(c) {
 }
 
 const STATUS_CONFIG = {
-  overdue: { label: '?? ??', class: 'badge-overdue', dotColor: 'bg-red-500' },
-  urgent: { label: '?? ??', class: 'badge-urgent', dotColor: 'bg-amber-500' },
-  safe: { label: '?? ??', class: 'badge-safe', dotColor: 'bg-emerald-500' },
-  stopped: { label: '?? ??', class: 'badge-stopped', dotColor: 'bg-slate-400' },
-  paused: { label: '?? ????', class: 'badge-paused', dotColor: 'bg-purple-500' },
-  inactive: { label: '?? ??', class: 'badge-stopped', dotColor: 'bg-slate-400' }
+  overdue: { label: '기간 초과', class: 'badge-overdue', dotColor: 'bg-red-500' },
+  urgent: { label: '사전 알림', class: 'badge-urgent', dotColor: 'bg-amber-500' },
+  safe: { label: '여유 있음', class: 'badge-safe', dotColor: 'bg-emerald-500' },
+  stopped: { label: '생산 중단', class: 'badge-stopped', dotColor: 'bg-slate-400' },
+  paused: { label: '알림 일시중지', class: 'badge-paused', dotColor: 'bg-purple-500' },
+  inactive: { label: '재직 제외', class: 'badge-stopped', dotColor: 'bg-slate-400' }
 };
 
 function renderStatusBadge(status, dDayText) {
@@ -262,7 +268,6 @@ function renderDashboard() {
   const computedProducts = appState.products.map(getProductComputed);
   const computedHealth = appState.healthCerts.map(getHealthCertComputed);
 
-  // KPI Calculations
   const totalCount = computedProducts.length;
   const overdueCount = computedProducts.filter(p => p.status === 'overdue').length;
   const urgentCount = computedProducts.filter(p => p.status === 'urgent').length;
@@ -275,28 +280,26 @@ function renderDashboard() {
   document.getElementById('kpi-safe').textContent = safeCount;
   document.getElementById('kpi-health-warning').textContent = healthWarningCount;
 
-  // Urgent Banner
   const banner = document.getElementById('dashboard-urgent-banner');
   const bannerText = document.getElementById('urgent-banner-text');
   if (overdueCount > 0) {
     banner.classList.remove('hidden');
-    bannerText.textContent = `?? ?? ?????? ??? ??? ??? ${overdueCount}? ????. ?? ?? ? ?? ??? ?????.`;
+    banner.className = 'rounded-xl p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200';
+    bannerText.textContent = `현재 법정 자가품질검사 기한을 초과한 품목이 ${overdueCount}건 있습니다. 즉시 생산 및 검사 일정을 확인하세요.`;
   } else if (urgentCount > 0) {
     banner.classList.remove('hidden');
     banner.className = 'rounded-xl p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200';
-    bannerText.textContent = `14? ?? ?????? ?? ?? ??? ${urgentCount}? ????. ?? ??? ??? ?????.`;
+    bannerText.textContent = `14일 이내 자가품질검사 마감 예정 품목이 ${urgentCount}건 있습니다. 검사 성적서 의뢰를 준비하세요.`;
   } else {
     banner.classList.add('hidden');
   }
 
-  // Filter products
   let filtered = computedProducts.filter(p => {
     if (statusFilter !== 'all' && p.status !== statusFilter) return false;
     if (searchKeyword && !p.name.toLowerCase().includes(searchKeyword) && !p.typeName.toLowerCase().includes(searchKeyword)) return false;
     return true;
   });
 
-  // Sort by priority (overdue -> urgent -> safe -> stopped -> paused)
   const sortPriority = { overdue: 1, urgent: 2, safe: 3, paused: 4, stopped: 5 };
   filtered.sort((a, b) => {
     const pDiff = (sortPriority[a.status] || 99) - (sortPriority[b.status] || 99);
@@ -304,10 +307,10 @@ function renderDashboard() {
     return (a.dDay ?? 999) - (b.dDay ?? 999);
   });
 
-  document.getElementById('dash-filtered-count').textContent = `${filtered.length}?`;
+  document.getElementById('dash-filtered-count').textContent = `${filtered.length}건`;
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400">??? ?? ??? ????.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400">조건에 맞는 품목이 없습니다.</td></tr>`;
     return;
   }
 
@@ -316,21 +319,21 @@ function renderDashboard() {
       <td class="py-3 px-4">${renderStatusBadge(p.status, formatDDay(p.dDay))}</td>
       <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">${escapeHtml(p.name)}</td>
       <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">${escapeHtml(p.typeName)}</span></td>
-      <td class="py-3 px-4 font-medium">${p.intervalMonths}??</td>
+      <td class="py-3 px-4 font-medium">${p.intervalMonths}개월</td>
       <td class="py-3 px-4 text-slate-500 dark:text-slate-400">${p.lastManufactureDate || '-'}</td>
       <td class="py-3 px-4 font-medium text-slate-900 dark:text-white">${p.nextDeadline || '-'}</td>
       <td class="py-3 px-4 text-center">
         <button onclick="openQuickRenewModal(${p.id})" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition shadow-sm">
           <i data-lucide="check" class="w-3.5 h-3.5"></i>
-          <span>????</span>
+          <span>검사완료</span>
         </button>
       </td>
       <td class="py-3 px-4 text-right action-column">
         <div class="flex items-center justify-end gap-1.5">
-          <button onclick="viewHistory(${p.id})" class="p-1.5 text-slate-400 hover:text-blue-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="?? ??">
+          <button onclick="viewHistory(${p.id})" class="p-1.5 text-slate-400 hover:text-blue-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="검사 이력">
             <i data-lucide="history" class="w-4 h-4"></i>
           </button>
-          <button onclick="openEditProductModal(${p.id})" class="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="??">
+          <button onclick="openEditProductModal(${p.id})" class="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="수정">
             <i data-lucide="pencil" class="w-4 h-4"></i>
           </button>
         </div>
@@ -347,7 +350,7 @@ function renderProducts() {
 
   const computedProducts = appState.products.map(getProductComputed);
   if (computedProducts.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-400">??? ??? ????. ? ??? ?????.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-400">등록된 제품이 없습니다. 새 제품을 추가하세요.</td></tr>`;
     return;
   }
 
@@ -355,30 +358,30 @@ function renderProducts() {
     <tr class="table-row-hover transition">
       <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">${escapeHtml(p.name)}</td>
       <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${escapeHtml(p.typeName)}</span></td>
-      <td class="py-3 px-4">${p.intervalMonths}??</td>
+      <td class="py-3 px-4">${p.intervalMonths}개월</td>
       <td class="py-3 px-4">${p.lastManufactureDate || '-'}</td>
       <td class="py-3 px-4 font-medium">${p.nextDeadline || '-'}</td>
       <td class="py-3 px-4">
         ${p.productionStatus === 'stopped' 
-          ? `<button onclick="openStopStatusModal(${p.id}, 'resume')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700 hover:border-emerald-500"><span>????</span><i data-lucide="play" class="w-3 h-3 text-emerald-600"></i></button>`
-          : `<button onclick="openStopStatusModal(${p.id}, 'stop')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:border-red-400"><span>???</span><i data-lucide="pause" class="w-3 h-3 text-red-500"></i></button>`
+          ? `<button onclick="openStopStatusModal(${p.id}, 'resume')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700 hover:border-emerald-500"><span>생산중단</span><i data-lucide="play" class="w-3 h-3 text-emerald-600"></i></button>`
+          : `<button onclick="openStopStatusModal(${p.id}, 'stop')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:border-red-400"><span>생산중</span><i data-lucide="pause" class="w-3 h-3 text-red-500"></i></button>`
         }
       </td>
       <td class="py-3 px-4">
         <button onclick="toggleAlertPause(${p.id})" class="text-xs ${p.alertStatus === 'paused' ? 'text-purple-600 font-semibold' : 'text-slate-400 hover:text-slate-600'}">
-          ${p.alertStatus === 'paused' ? '?? ????' : '?? ??'}
+          ${p.alertStatus === 'paused' ? '🔕 알림중지' : '🔔 활성'}
         </button>
       </td>
       <td class="py-3 px-4 text-slate-500 text-xs truncate max-w-xs">${escapeHtml(p.memo || '-')}</td>
       <td class="py-3 px-4 text-right action-column">
         <div class="flex items-center justify-end gap-1.5">
-          <button onclick="viewHistory(${p.id})" class="p-1.5 text-slate-400 hover:text-blue-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="??">
+          <button onclick="viewHistory(${p.id})" class="p-1.5 text-slate-400 hover:text-blue-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="이력">
             <i data-lucide="history" class="w-4 h-4"></i>
           </button>
-          <button onclick="openEditProductModal(${p.id})" class="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="??">
+          <button onclick="openEditProductModal(${p.id})" class="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="수정">
             <i data-lucide="pencil" class="w-4 h-4"></i>
           </button>
-          <button onclick="deleteProduct(${p.id})" class="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="??">
+          <button onclick="deleteProduct(${p.id})" class="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="삭제">
             <i data-lucide="trash-2" class="w-4 h-4"></i>
           </button>
         </div>
@@ -394,7 +397,7 @@ function renderTypes() {
   if (!tbody) return;
 
   if (appState.types.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-400">??? ????? ????.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-400">등록된 식품유형이 없습니다.</td></tr>`;
     return;
   }
 
@@ -403,15 +406,15 @@ function renderTypes() {
     return `
       <tr class="table-row-hover transition">
         <td class="py-3 px-4 font-bold text-slate-900 dark:text-white">${escapeHtml(t.name)}</td>
-        <td class="py-3 px-4 font-semibold text-blue-600 dark:text-blue-400">${t.intervalMonths}??</td>
+        <td class="py-3 px-4 font-semibold text-blue-600 dark:text-blue-400">${t.intervalMonths}개월</td>
         <td class="py-3 px-4 text-slate-600 dark:text-slate-300">${escapeHtml(t.testItems || '-')}</td>
-        <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">${prodCount}? ??</span></td>
+        <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">${prodCount}개 제품</span></td>
         <td class="py-3 px-4 text-right action-column">
           <div class="flex items-center justify-end gap-1.5">
-            <button onclick="openEditTypeModal(${t.id})" class="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="??">
+            <button onclick="openEditTypeModal(${t.id})" class="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="수정">
               <i data-lucide="pencil" class="w-4 h-4"></i>
             </button>
-            <button onclick="deleteType(${t.id})" class="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="??">
+            <button onclick="deleteType(${t.id})" class="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="삭제">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
@@ -429,7 +432,7 @@ function renderHealthCerts() {
 
   const computedHealth = appState.healthCerts.map(getHealthCertComputed);
   if (computedHealth.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400">??? ??? ???? ????.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400">등록된 보건증 대상자가 없습니다.</td></tr>`;
     return;
   }
 
@@ -442,17 +445,17 @@ function renderHealthCerts() {
       <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">${c.expiresAt || '-'}</td>
       <td class="py-3 px-4">
         ${c.hasFile 
-          ? `<button onclick="downloadHealthFile(${c.id})" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"><i data-lucide="paperclip" class="w-3.5 h-3.5"></i><span>?? ??</span></button>`
-          : `<span class="text-slate-400 text-xs">???</span>`
+          ? `<button onclick="downloadHealthFile(${c.id})" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"><i data-lucide="paperclip" class="w-3.5 h-3.5"></i><span>사본 열람</span></button>`
+          : `<span class="text-slate-400 text-xs">미등록</span>`
         }
       </td>
       <td class="py-3 px-4 text-slate-500 text-xs truncate max-w-xs">${escapeHtml(c.memo || '-')}</td>
       <td class="py-3 px-4 text-right action-column">
         <div class="flex items-center justify-end gap-1.5">
-          <button onclick="openEditHealthCertModal(${c.id})" class="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="??/??">
+          <button onclick="openEditHealthCertModal(${c.id})" class="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="수정/갱신">
             <i data-lucide="pencil" class="w-4 h-4"></i>
           </button>
-          <button onclick="deleteHealthCert(${c.id})" class="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="??">
+          <button onclick="deleteHealthCert(${c.id})" class="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="삭제">
             <i data-lucide="trash-2" class="w-4 h-4"></i>
           </button>
         </div>
@@ -468,25 +471,25 @@ function renderCertificates() {
   if (!tbody) return;
 
   if (appState.certificates.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400">??? ???? ????.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400">보관된 성적서가 없습니다.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = appState.certificates.map(c => {
     const product = appState.products.find(p => p.id === Number(c.productId));
-    const prodName = product ? product.name : '??/????';
+    const prodName = product ? product.name : '전체/유형공통';
     return `
       <tr class="table-row-hover transition">
         <td class="py-3 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">${escapeHtml(c.certNumber || '-')}</td>
         <td class="py-3 px-4 font-medium text-slate-900 dark:text-white">${escapeHtml(prodName)}</td>
         <td class="py-3 px-4">${c.inspectionDate || '-'}</td>
-        <td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-medium truncate max-w-xs">${escapeHtml(c.fileName || '???.pdf')}</td>
+        <td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-medium truncate max-w-xs">${escapeHtml(c.fileName || '성적서.pdf')}</td>
         <td class="py-3 px-4 text-slate-400 text-xs">${c.createdAt ? c.createdAt.slice(0, 10) : '-'}</td>
         <td class="py-3 px-4 text-right action-column">
           <div class="flex items-center justify-end gap-2">
             <button onclick="downloadCertFile(${c.id})" class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300">
               <i data-lucide="download" class="w-3.5 h-3.5"></i>
-              <span>????</span>
+              <span>다운로드</span>
             </button>
             <button onclick="deleteCert(${c.id})" class="p-1 text-slate-400 hover:text-red-600">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -518,14 +521,14 @@ function closeModal(id) {
 }
 
 function openAddProductModal() {
-  document.getElementById('modal-product-title').textContent = '? ?? ??';
+  document.getElementById('modal-product-title').textContent = '새 제품 등록';
   document.getElementById('prod-id').value = '';
   document.getElementById('prod-name').value = '';
   document.getElementById('prod-last-date').value = getTodayKstStr();
   document.getElementById('prod-memo').value = '';
 
   const typeSelect = document.getElementById('prod-type-id');
-  typeSelect.innerHTML = appState.types.map(t => `<option value="${t.id}">${t.name} (${t.intervalMonths}??)</option>`).join('');
+  typeSelect.innerHTML = appState.types.map(t => `<option value="${t.id}">${t.name} (${t.intervalMonths}개월)</option>`).join('');
   if (appState.types.length > 0) {
     document.getElementById('prod-interval').value = appState.types[0].intervalMonths;
   }
@@ -544,7 +547,7 @@ function openEditProductModal(id) {
   const p = appState.products.find(x => x.id === id);
   if (!p) return;
 
-  document.getElementById('modal-product-title').textContent = '?? ?? ??';
+  document.getElementById('modal-product-title').textContent = '제품 정보 수정';
   document.getElementById('prod-id').value = p.id;
   document.getElementById('prod-name').value = p.name;
   document.getElementById('prod-last-date').value = p.lastManufactureDate || '';
@@ -552,7 +555,7 @@ function openEditProductModal(id) {
   document.getElementById('prod-memo').value = p.memo || '';
 
   const typeSelect = document.getElementById('prod-type-id');
-  typeSelect.innerHTML = appState.types.map(t => `<option value="${t.id}" ${t.id === p.typeId ? 'selected' : ''}>${t.name} (${t.intervalMonths}??)</option>`).join('');
+  typeSelect.innerHTML = appState.types.map(t => `<option value="${t.id}" ${t.id === p.typeId ? 'selected' : ''}>${t.name} (${t.intervalMonths}개월)</option>`).join('');
   openModal('modal-product');
 }
 
@@ -566,7 +569,7 @@ function handleSaveProduct(e) {
   const memo = document.getElementById('prod-memo').value.trim();
 
   if (!name || !lastManufactureDate) {
-    showToast('???? ?? ???? ?????.', 'error');
+    showToast('제품명과 최근 제조일을 입력하세요.', 'error');
     return;
   }
 
@@ -578,7 +581,7 @@ function handleSaveProduct(e) {
       p.intervalMonths = intervalMonths;
       p.lastManufactureDate = lastManufactureDate;
       p.memo = memo;
-      showToast('?? ??? ???????.', 'success');
+      showToast('제품 정보가 수정되었습니다.', 'success');
     }
   } else {
     const newId = appState.products.length ? Math.max(...appState.products.map(p => p.id)) + 1 : 1;
@@ -592,17 +595,16 @@ function handleSaveProduct(e) {
       productionStatus: 'active',
       alertStatus: 'active'
     });
-    // Record initial history
     appState.history.push({
       id: Date.now(),
       productId: newId,
       productName: name,
       manufactureDate: lastManufactureDate,
       previousDate: null,
-      memo: '?? ?? ??',
+      memo: '초기 제품 등록',
       createdAt: new Date().toISOString()
     });
-    showToast('? ??? ???????.', 'success');
+    showToast('새 제품이 등록되었습니다.', 'success');
   }
 
   saveState();
@@ -614,25 +616,24 @@ function handleSaveProduct(e) {
 function deleteProduct(id) {
   const p = appState.products.find(x => x.id === id);
   if (!p) return;
-  if (!confirm(`'${p.name}' ??? ?????????`)) return;
+  if (!confirm(`'${p.name}' 제품을 삭제하시겠습니까?`)) return;
 
   appState.products = appState.products.filter(x => x.id !== id);
   saveState();
-  showToast('??? ???????.', 'info');
+  showToast('제품이 삭제되었습니다.', 'info');
   if (currentTab === 'dashboard') renderDashboard();
   else if (currentTab === 'products') renderProducts();
 }
 
-// Quick Renew
 function openQuickRenewModal(id) {
   const p = appState.products.find(x => x.id === id);
   if (!p) return;
 
   document.getElementById('renew-prod-id').value = p.id;
   document.getElementById('renew-prod-name').textContent = p.name;
-  document.getElementById('renew-prod-info').textContent = `?? ?????: ${p.lastManufactureDate || '??'} ? ??: ${p.intervalMonths || 2}??`;
+  document.getElementById('renew-prod-info').textContent = `기존 최근제조일: ${p.lastManufactureDate || '없음'} • 주기: ${p.intervalMonths || 2}개월`;
   document.getElementById('renew-date').value = getTodayKstStr();
-  document.getElementById('renew-memo').value = `${getTodayKstStr()} ????/?? ??`;
+  document.getElementById('renew-memo').value = `${getTodayKstStr()} 정기검사/생산 완료`;
 
   openModal('modal-quick-renew');
 }
@@ -655,29 +656,28 @@ function handleQuickRenew(e) {
     productName: p.name,
     manufactureDate: newDate,
     previousDate: prevDate,
-    memo: memo || '?? ?? ??',
+    memo: memo || '검사 완료 갱신',
     createdAt: new Date().toISOString()
   });
 
   saveState();
   closeModal('modal-quick-renew');
-  showToast(`${p.name} ?? ??? ???????.`, 'success');
+  showToast(`${p.name} 검사 일정이 갱신되었습니다.`, 'success');
   renderDashboard();
 }
 
-// History
 function viewHistory(productId) {
   const p = appState.products.find(x => x.id === productId);
   if (!p) return;
 
-  document.getElementById('history-modal-title').textContent = `${p.name} - ?? ??`;
-  document.getElementById('history-modal-subtitle').textContent = `?????? ? ??? ?? ??`;
+  document.getElementById('history-modal-title').textContent = `${p.name} - 검사 이력`;
+  document.getElementById('history-modal-subtitle').textContent = '자가품질검사 및 제조일 갱신 기록';
 
   const records = appState.history.filter(h => h.productId === productId).sort((a, b) => new Date(b.manufactureDate) - new Date(a.manufactureDate));
   const container = document.getElementById('history-timeline-content');
 
   if (records.length === 0) {
-    container.innerHTML = `<p class="text-center py-6 text-slate-400">??? ?? ??? ????.</p>`;
+    container.innerHTML = `<p class="text-center py-6 text-slate-400">등록된 검사 이력이 없습니다.</p>`;
   } else {
     container.innerHTML = records.map((r, i) => `
       <div class="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex items-start gap-3">
@@ -686,11 +686,11 @@ function viewHistory(productId) {
         </div>
         <div class="flex-1">
           <div class="flex items-center justify-between">
-            <span class="font-bold text-slate-900 dark:text-white">??(??)?: ${r.manufactureDate}</span>
+            <span class="font-bold text-slate-900 dark:text-white">제조(검사)일: ${r.manufactureDate}</span>
             <span class="text-[11px] text-slate-400">${r.createdAt ? r.createdAt.slice(0, 10) : ''}</span>
           </div>
-          ${r.previousDate ? `<div class="text-[11px] text-slate-500 mt-0.5">?? ??: ${r.previousDate}</div>` : ''}
-          <div class="text-xs text-slate-600 dark:text-slate-300 mt-1 font-medium">${escapeHtml(r.memo || '?? ??')}</div>
+          ${r.previousDate ? `<div class="text-[11px] text-slate-500 mt-0.5">이전 기록: ${r.previousDate}</div>` : ''}
+          <div class="text-xs text-slate-600 dark:text-slate-300 mt-1 font-medium">${escapeHtml(r.memo || '정기 검사')}</div>
         </div>
       </div>
     `).join('');
@@ -699,7 +699,6 @@ function viewHistory(productId) {
   openModal('modal-history');
 }
 
-// Production Stop / Resume
 function openStopStatusModal(productId, actionType) {
   const p = appState.products.find(x => x.id === productId);
   if (!p) return;
@@ -708,20 +707,20 @@ function openStopStatusModal(productId, actionType) {
   document.getElementById('stop-action-type').value = actionType;
 
   if (actionType === 'stop') {
-    document.getElementById('stop-modal-title').textContent = `${p.name} ?? ?? ??`;
-    document.getElementById('stop-modal-desc').textContent = '?? ?? ?? ? ?? ??? ?? ? ?? ??? ?????.';
+    document.getElementById('stop-modal-title').textContent = `${p.name} 생산 중단 처리`;
+    document.getElementById('stop-modal-desc').textContent = '생산 중단 처리 시 다음 마감일 계산 및 자동 알림이 제외됩니다.';
     document.getElementById('stop-reason-box').classList.remove('hidden');
     document.getElementById('resume-date-box').classList.add('hidden');
     document.getElementById('stop-submit-btn').className = 'px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold';
-    document.getElementById('stop-submit-btn').textContent = '?? ??';
+    document.getElementById('stop-submit-btn').textContent = '생산 중단';
   } else {
-    document.getElementById('stop-modal-title').textContent = `${p.name} ??? ?? (??)`;
-    document.getElementById('stop-modal-desc').textContent = '??? ???? ???? ??? ?? ?? ? ???? ?????.';
+    document.getElementById('stop-modal-title').textContent = `${p.name} 재생산 시작 (재개)`;
+    document.getElementById('stop-modal-desc').textContent = '재생산 제조일자를 입력하면 새로운 검사 주기 및 마감일이 계산됩니다.';
     document.getElementById('stop-reason-box').classList.add('hidden');
     document.getElementById('resume-date-box').classList.remove('hidden');
     document.getElementById('resume-date-input').value = getTodayKstStr();
     document.getElementById('stop-submit-btn').className = 'px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold';
-    document.getElementById('stop-submit-btn').textContent = '?? ??';
+    document.getElementById('stop-submit-btn').textContent = '생산 재개';
   }
 
   openModal('modal-stop');
@@ -736,18 +735,18 @@ function handleSaveStopStatus(e) {
 
   if (actionType === 'stop') {
     p.productionStatus = 'stopped';
-    p.stopReason = document.getElementById('stop-reason-input').value.trim() || '?? ?? ??';
-    showToast(`${p.name} ??? ?? ???????.`, 'info');
+    p.stopReason = document.getElementById('stop-reason-input').value.trim() || '일시 생산 중단';
+    showToast(`${p.name} 생산이 중단 처리되었습니다.`, 'info');
   } else {
     const newDate = document.getElementById('resume-date-input').value;
     if (!newDate) {
-      showToast('??? ????? ?????.', 'error');
+      showToast('재생산 제조일자를 입력하세요.', 'error');
       return;
     }
     p.productionStatus = 'active';
     p.lastManufactureDate = newDate;
     p.stopReason = '';
-    showToast(`${p.name} ??? ???????.`, 'success');
+    showToast(`${p.name} 생산이 재개되었습니다.`, 'success');
   }
 
   saveState();
@@ -761,14 +760,13 @@ function toggleAlertPause(productId) {
   if (!p) return;
   p.alertStatus = p.alertStatus === 'paused' ? 'active' : 'paused';
   saveState();
-  showToast(p.alertStatus === 'paused' ? '??? ?? ???????.' : '??? ?? ????????.', 'info');
+  showToast(p.alertStatus === 'paused' ? '알림이 일시 중단되었습니다.' : '알림이 다시 활성화되었습니다.', 'info');
   if (currentTab === 'dashboard') renderDashboard();
   else if (currentTab === 'products') renderProducts();
 }
 
-// ==================== 6. Types, Health, Certs Handlers ====================
 function openAddTypeModal() {
-  document.getElementById('modal-type-title').textContent = '? ???? ??';
+  document.getElementById('modal-type-title').textContent = '새 식품유형 등록';
   document.getElementById('type-id').value = '';
   document.getElementById('type-name').value = '';
   document.getElementById('type-interval').value = '2';
@@ -779,7 +777,7 @@ function openAddTypeModal() {
 function openEditTypeModal(id) {
   const t = appState.types.find(x => x.id === id);
   if (!t) return;
-  document.getElementById('modal-type-title').textContent = '???? ??';
+  document.getElementById('modal-type-title').textContent = '식품유형 수정';
   document.getElementById('type-id').value = t.id;
   document.getElementById('type-name').value = t.name;
   document.getElementById('type-interval').value = t.intervalMonths;
@@ -795,7 +793,7 @@ function handleSaveType(e) {
   const testItems = document.getElementById('type-items').value.trim();
 
   if (!name || !intervalMonths) {
-    showToast('???? ?? ??? ?????.', 'error');
+    showToast('유형명과 검사 주기를 입력하세요.', 'error');
     return;
   }
 
@@ -805,12 +803,12 @@ function handleSaveType(e) {
       t.name = name;
       t.intervalMonths = intervalMonths;
       t.testItems = testItems;
-      showToast('????? ???????.', 'success');
+      showToast('식품유형이 수정되었습니다.', 'success');
     }
   } else {
     const newId = appState.types.length ? Math.max(...appState.types.map(t => t.id)) + 1 : 1;
     appState.types.push({ id: newId, name, intervalMonths, testItems });
-    showToast('? ????? ???????.', 'success');
+    showToast('새 식품유형이 등록되었습니다.', 'success');
   }
 
   saveState();
@@ -821,19 +819,18 @@ function handleSaveType(e) {
 function deleteType(id) {
   const inUse = appState.products.some(p => p.typeId === id);
   if (inUse) {
-    showToast('?? ????? ?? ??? ?? ??? ? ????.', 'error');
+    showToast('해당 식품유형에 속한 제품이 있어 삭제할 수 없습니다.', 'error');
     return;
   }
-  if (!confirm('? ????? ?????????')) return;
+  if (!confirm('이 식품유형을 삭제하시겠습니까?')) return;
   appState.types = appState.types.filter(t => t.id !== id);
   saveState();
-  showToast('????? ???????.', 'info');
+  showToast('식품유형이 삭제되었습니다.', 'info');
   renderTypes();
 }
 
-// Health Certs
 function openAddHealthCertModal() {
-  document.getElementById('modal-health-title').textContent = '? ??? ??';
+  document.getElementById('modal-health-title').textContent = '새 보건증 등록';
   document.getElementById('health-id').value = '';
   document.getElementById('health-name').value = '';
   document.getElementById('health-dept').value = '';
@@ -856,7 +853,7 @@ function openEditHealthCertModal(id) {
   const c = appState.healthCerts.find(x => x.id === id);
   if (!c) return;
 
-  document.getElementById('modal-health-title').textContent = '??? ?? ?? / ??';
+  document.getElementById('modal-health-title').textContent = '보건증 정보 수정 / 갱신';
   document.getElementById('health-id').value = c.id;
   document.getElementById('health-name').value = c.employeeName;
   document.getElementById('health-dept').value = c.department || '';
@@ -878,7 +875,7 @@ async function handleSaveHealthCert(e) {
   const fileInput = document.getElementById('health-file');
 
   if (!employeeName || !issuedAt || !expiresAt) {
-    showToast('????, ???, ???? ?????.', 'error');
+    showToast('담당자명, 발급일, 만료일을 입력하세요.', 'error');
     return;
   }
 
@@ -900,7 +897,7 @@ async function handleSaveHealthCert(e) {
       c.expiresAt = expiresAt;
       c.memo = memo;
       if (hasFile) c.hasFile = true;
-      showToast('??? ??? ???????.', 'success');
+      showToast('보건증 정보가 저장되었습니다.', 'success');
     }
   } else {
     appState.healthCerts.push({
@@ -915,7 +912,7 @@ async function handleSaveHealthCert(e) {
       employmentStatus: 'active',
       alertStatus: 'active'
     });
-    showToast('? ???? ???????.', 'success');
+    showToast('새 보건증이 등록되었습니다.', 'success');
   }
 
   saveState();
@@ -926,13 +923,13 @@ async function handleSaveHealthCert(e) {
 async function downloadHealthFile(id) {
   const file = await getFileFromDB(`health_${id}`);
   if (!file) {
-    showToast('??? ??? ??? ????.', 'error');
+    showToast('저장된 보건증 파일이 없습니다.', 'error');
     return;
   }
   const url = URL.createObjectURL(file);
   const a = document.createElement('a');
   a.href = url;
-  a.download = file.name || `???_${id}.pdf`;
+  a.download = file.name || `보건증_${id}.pdf`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -940,16 +937,15 @@ async function downloadHealthFile(id) {
 function deleteHealthCert(id) {
   const c = appState.healthCerts.find(x => x.id === id);
   if (!c) return;
-  if (!confirm(`'${c.employeeName}' ???? ??? ??? ?????????`)) return;
+  if (!confirm(`'${c.employeeName}' 담당자의 보건증 기록을 삭제하시겠습니까?`)) return;
 
   appState.healthCerts = appState.healthCerts.filter(x => x.id !== id);
   deleteFileFromDB(`health_${id}`);
   saveState();
-  showToast('??? ??? ???????.', 'info');
+  showToast('보건증 기록이 삭제되었습니다.', 'info');
   renderHealthCerts();
 }
 
-// Quality Certs
 function openUploadCertModal() {
   const year = new Date().getFullYear();
   const seq = String(appState.settings.certSequence || 1).padStart(3, '0');
@@ -959,7 +955,7 @@ function openUploadCertModal() {
   document.getElementById('cert-memo').value = '';
 
   const prodSelect = document.getElementById('cert-product-id');
-  prodSelect.innerHTML = `<option value="">?? ? ? (??/??)</option>` + 
+  prodSelect.innerHTML = `<option value="">선택 안 함 (전체/공통)</option>` + 
     appState.products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
   openModal('modal-upload-cert');
@@ -974,7 +970,7 @@ async function handleSaveCert(e) {
   const fileInput = document.getElementById('cert-file');
 
   if (!inspectionDate || fileInput.files.length === 0) {
-    showToast('?? ??? ??? ??? ?????.', 'error');
+    showToast('검사 일자와 성적서 파일을 첨부하세요.', 'error');
     return;
   }
 
@@ -997,7 +993,7 @@ async function handleSaveCert(e) {
   appState.settings.certSequence = (appState.settings.certSequence || 1) + 1;
   saveState();
   closeModal('modal-upload-cert');
-  showToast('???? ???? ???????.', 'success');
+  showToast('성적서가 안전하게 보관되었습니다.', 'success');
   renderCertificates();
 }
 
@@ -1005,13 +1001,13 @@ async function downloadCertFile(id) {
   const c = appState.certificates.find(x => x.id === id);
   const file = await getFileFromDB(`cert_${id}`);
   if (!file) {
-    showToast('??? ??? ??? ?? ? ????.', 'error');
+    showToast('저장된 성적서 파일을 찾을 수 없습니다.', 'error');
     return;
   }
   const url = URL.createObjectURL(file);
   const a = document.createElement('a');
   a.href = url;
-  a.download = c ? c.fileName : '???.pdf';
+  a.download = c ? c.fileName : '성적서.pdf';
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -1019,52 +1015,52 @@ async function downloadCertFile(id) {
 function deleteCert(id) {
   const c = appState.certificates.find(x => x.id === id);
   if (!c) return;
-  if (!confirm(`??? '${c.certNumber || c.fileName}'?(?) ?????????`)) return;
+  if (!confirm(`성적서 '${c.certNumber || c.fileName}'을(를) 삭제하시겠습니까?`)) return;
 
   appState.certificates = appState.certificates.filter(x => x.id !== id);
   deleteFileFromDB(`cert_${id}`);
   saveState();
-  showToast('???? ???????.', 'info');
+  showToast('성적서가 삭제되었습니다.', 'info');
   renderCertificates();
 }
 
-// ==================== 7. Excel, Backup & Telegram ====================
+// ==================== 6. Excel, Backup & Telegram ====================
 function exportScheduleExcel() {
   const computedProducts = appState.products.map(getProductComputed);
   const prodRows = computedProducts.map(p => ({
-    '??': STATUS_CONFIG[p.status]?.label || '??',
+    '상태': STATUS_CONFIG[p.status]?.label || '정상',
     'D-Day': formatDDay(p.dDay),
-    '???': p.name,
-    '????': p.typeName,
-    '????(??)': p.intervalMonths,
-    '?????': p.lastManufactureDate || '',
-    '?????': p.nextDeadline || '',
-    '????': p.productionStatus === 'stopped' ? `??(${p.stopReason || '?????'})` : '???',
-    '????': p.alertStatus === 'paused' ? '????' : '??',
-    '??': p.memo || ''
+    '제품명': p.name,
+    '식품유형': p.typeName,
+    '검사주기(개월)': p.intervalMonths,
+    '최근제조일': p.lastManufactureDate || '',
+    '차기마감일': p.nextDeadline || '',
+    '생산상태': p.productionStatus === 'stopped' ? `중단(${p.stopReason || '사유미기재'})` : '생산중',
+    '알림상태': p.alertStatus === 'paused' ? '일시중지' : '정상',
+    '비고': p.memo || ''
   }));
 
   const healthRows = appState.healthCerts.map(getHealthCertComputed).map(c => ({
-    '??': STATUS_CONFIG[c.status]?.label || '??',
+    '상태': STATUS_CONFIG[c.status]?.label || '정상',
     'D-Day': formatDDay(c.dDay),
-    '????': c.employeeName,
-    '????': c.department || '',
-    '????': c.issuedAt,
-    '????': c.expiresAt,
-    '????': c.employmentStatus === 'inactive' ? '??/??' : '???',
-    '??': c.memo || ''
+    '담당자명': c.employeeName,
+    '소속부서': c.department || '',
+    '발급일자': c.issuedAt,
+    '만료일자': c.expiresAt,
+    '재직상태': c.employmentStatus === 'inactive' ? '퇴사/제외' : '재직중',
+    '메모': c.memo || ''
   }));
 
   const wb = XLSX.utils.book_new();
   const wsProd = XLSX.utils.json_to_sheet(prodRows);
   const wsHealth = XLSX.utils.json_to_sheet(healthRows);
 
-  XLSX.utils.book_append_sheet(wb, wsProd, '?????? ??');
-  XLSX.utils.book_append_sheet(wb, wsHealth, '??? ????');
+  XLSX.utils.book_append_sheet(wb, wsProd, '자가품질검사 일정');
+  XLSX.utils.book_append_sheet(wb, wsHealth, '보건증 관리대장');
 
   const today = getTodayKstStr();
-  XLSX.writeFile(wb, `????_????????_${today}.xlsx`);
-  showToast('?? ???? ?????????.', 'success');
+  XLSX.writeFile(wb, `코엔에프_품질검사스케줄러_${today}.xlsx`);
+  showToast('엑셀 보고서가 다운로드되었습니다.', 'success');
 }
 
 function handleExcelUpload(e) {
@@ -1081,20 +1077,20 @@ function handleExcelUpload(e) {
 
       let addedCount = 0;
       rows.forEach(r => {
-        const name = r['???'] || r['???'] || r['name'];
+        const name = r['제품명'] || r['품목명'] || r['name'];
         if (!name) return;
 
-        const typeName = r['????'] || r['??'] || '?????';
+        const typeName = r['식품유형'] || r['유형'] || '기타가공품';
         let type = appState.types.find(t => t.name === typeName);
         if (!type) {
           const newTypeId = appState.types.length ? Math.max(...appState.types.map(t => t.id)) + 1 : 1;
-          type = { id: newTypeId, name: typeName, intervalMonths: Number(r['????'] || 2), testItems: '' };
+          type = { id: newTypeId, name: typeName, intervalMonths: Number(r['검사주기'] || 2), testItems: '' };
           appState.types.push(type);
         }
 
-        const lastDate = r['?????'] || r['???'] || r['???'] || getTodayKstStr();
-        const intervalMonths = Number(r['????(??)'] || r['????'] || type.intervalMonths || 2);
-        const memo = r['??'] || r['??'] || '';
+        const lastDate = r['최근제조일'] || r['제조일'] || r['검사일'] || getTodayKstStr();
+        const intervalMonths = Number(r['검사주기(개월)'] || r['검사주기'] || type.intervalMonths || 2);
+        const memo = r['비고'] || r['메모'] || '';
 
         const newId = appState.products.length ? Math.max(...appState.products.map(p => p.id)) + 1 : 1;
         appState.products.push({
@@ -1111,11 +1107,11 @@ function handleExcelUpload(e) {
       });
 
       saveState();
-      showToast(`${addedCount}? ??? ???? ???????.`, 'success');
+      showToast(`${addedCount}개 제품이 엑셀에서 등록되었습니다.`, 'success');
       renderDashboard();
     } catch (err) {
       console.error(err);
-      showToast('?? ??? ?? ? ??? ??????.', 'error');
+      showToast('엑셀 파일을 읽는 중 오류가 발생했습니다.', 'error');
     }
   };
   reader.readAsArrayBuffer(file);
@@ -1128,10 +1124,10 @@ function exportJSONBackup() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `????_??????_${getTodayKstStr()}.json`;
+  a.download = `코엔에프_품질검사백업_${getTodayKstStr()}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  showToast('?? ??? ???????.', 'success');
+  showToast('백업 파일이 저장되었습니다.', 'success');
 }
 
 function handleRestoreJSON(e) {
@@ -1143,15 +1139,15 @@ function handleRestoreJSON(e) {
     try {
       const parsed = JSON.parse(evt.target.result);
       if (!parsed.products || !parsed.types) {
-        throw new Error('???? ?? ?? ?? ??');
+        throw new Error('유효하지 않은 백업 파일 형식');
       }
-      if (!confirm('?? ???? ????????? ?? ???? ?????.')) return;
+      if (!confirm('백업 데이터로 복원하시겠습니까? 현재 데이터가 대체됩니다.')) return;
       appState = parsed;
       saveState();
-      showToast('?? ???? ????? ???????.', 'success');
+      showToast('백업 데이터가 성공적으로 복원되었습니다.', 'success');
       switchTab('dashboard');
     } catch (err) {
-      showToast('?? ??? ???? ?????: ??? JSON ??? ????.', 'error');
+      showToast('백업 파일을 복원하지 못했습니다: 올바른 JSON 파일이 아닙니다.', 'error');
     }
   };
   reader.readAsText(file);
@@ -1159,18 +1155,18 @@ function handleRestoreJSON(e) {
 }
 
 function loadSampleData(confirmUser) {
-  if (confirmUser && !confirm('?? ?? ???? ?????????')) return;
+  if (confirmUser && !confirm('기본 샘플 데이터를 불러오시겠습니까?')) return;
   appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
   saveState();
-  showToast('?? ?? ???? ???????.', 'success');
+  showToast('기본 샘플 데이터가 로드되었습니다.', 'success');
   switchTab('dashboard');
 }
 
 function resetAllData() {
-  if (!confirm('??: ?? ??, ?? ??, ??? ???? ?????. ?????????')) return;
+  if (!confirm('경고: 모든 제품, 검사 이력, 보건증 데이터가 삭제됩니다. 계속하시겠습니까?')) return;
   appState = { types: [], products: [], history: [], healthCerts: [], certificates: [], settings: DEFAULT_DATA.settings };
   saveState();
-  showToast('?? ???? ????????.', 'info');
+  showToast('모든 데이터가 초기화되었습니다.', 'info');
   switchTab('dashboard');
 }
 
@@ -1181,7 +1177,7 @@ function saveTelegramSettings() {
   appState.settings.telegramBotToken = token;
   appState.settings.telegramChatId = chatId;
   saveState();
-  showToast('???? ?? ??? ???????.', 'success');
+  showToast('텔레그램 알림 설정이 저장되었습니다.', 'success');
 }
 
 function saveNotificationDays() {
@@ -1190,7 +1186,7 @@ function saveNotificationDays() {
   appState.settings.warningDays = wDays;
   appState.settings.healthWarningDays = hwDays;
   saveState();
-  showToast('?? ???? ???????.', 'success');
+  showToast('알림 기준일이 저장되었습니다.', 'success');
 }
 
 async function testTelegramNotification() {
@@ -1198,7 +1194,7 @@ async function testTelegramNotification() {
   const chatId = appState.settings.telegramChatId;
 
   if (!token || !chatId) {
-    showToast('???? Bot Token? Chat ID? ?? ???? ?????.', 'error');
+    showToast('텔레그램 Bot Token과 Chat ID를 먼저 입력하고 저장하세요.', 'error');
     return;
   }
 
@@ -1206,22 +1202,16 @@ async function testTelegramNotification() {
   const overdueCount = computedProducts.filter(p => p.status === 'overdue').length;
   const urgentCount = computedProducts.filter(p => p.status === 'urgent').length;
 
-  const msgText = `?? [???? ?????? ??]
-` +
-    `?? ????: ${new Date().toLocaleString('ko-KR')}
-` +
-    `????????????????
-` +
-    `?? ?? ?? ??: ${overdueCount}?
-` +
-    `?? 14? ? ?? ??: ${urgentCount}?
-` +
-    `????????????????
-` +
-    `? ??? ?? ??? ????? ???????.`;
+  const msgText = `🧪 [코엔에프 자가품질검사 알림]\n` +
+    `📅 기준일시: ${new Date().toLocaleString('ko-KR')}\n` +
+    `━━━━━━━━━━━━━━━━\n` +
+    `🚨 기간 초과 품목: ${overdueCount}건\n` +
+    `⚠️ 14일 내 마감 임박: ${urgentCount}건\n` +
+    `━━━━━━━━━━━━━━━━\n` +
+    `✅ 시스템 시험 알림이 성공적으로 수신되었습니다.`;
 
   try {
-    showToast('?????? ?? ??? ???? ?...', 'info');
+    showToast('텔레그램으로 시험 알림을 전송하는 중...', 'info');
     const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1229,13 +1219,13 @@ async function testTelegramNotification() {
     });
     const result = await resp.json();
     if (result.ok) {
-      showToast('???? ???? ?? ???????! ??', 'success');
+      showToast('텔레그램 메시지가 정상 발송되었습니다! 🎉', 'success');
     } else {
-      showToast(`?? ??: ${result.description || 'Bot Token ?? Chat ID ?? ??'}`, 'error');
+      showToast(`전송 실패: ${result.description || 'Bot Token 또는 Chat ID 확인 필요'}`, 'error');
     }
   } catch (err) {
     console.error(err);
-    showToast('???? API ?? ??: ??? ?? ? ???? CORS ??? ?????.', 'error');
+    showToast('텔레그램 API 요청 실패: 인터넷 연결 및 브라우저 CORS 상태를 확인하세요.', 'error');
   }
 }
 
@@ -1248,7 +1238,7 @@ function toggleDarkMode() {
   const html = document.documentElement;
   const isDark = html.classList.toggle('dark');
   localStorage.setItem('koenf_theme', isDark ? 'dark' : 'light');
-  document.getElementById('theme-icon').setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+  document.getElementById('theme-icon')?.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
   lucide.createIcons();
 }
 

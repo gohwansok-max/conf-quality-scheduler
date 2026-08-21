@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>(?)???? ?????? ????</title>
+  <title>(주)코엔에프 자가품질검사 스케줄러</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -20,7 +20,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <link rel="stylesheet" href="styles.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75' fill='%232563eb'>??</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75' fill='%232563eb'>🧪</text></svg>">
 </head>
 <body class="min-h-screen flex flex-col">
 
@@ -33,23 +33,23 @@
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h1 class="font-bold text-lg text-slate-900 dark:text-white tracking-tight">???? ?????? ????</h1>
-              <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">v2.5 ??</span>
+              <h1 class="font-bold text-lg text-slate-900 dark:text-white tracking-tight">코엔에프 자가품질검사 스케줄러</h1>
+              <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">v2.5 정적웹</span>
             </div>
-            <p class="text-xs text-slate-500 dark:text-slate-400">????? ???? ? ??? ?? ?? ???</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">식품위생법 검사주기 및 보건증 통합 관리 시스템</p>
           </div>
         </div>
 
         <div class="flex items-center gap-2 sm:gap-3">
           <button id="btn-quick-excel" onclick="exportScheduleExcel()" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 transition">
             <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
-            <span>?? ????</span>
+            <span>엑셀 다운로드</span>
           </button>
           <button id="btn-quick-print" onclick="triggerPrint()" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition">
             <i data-lucide="printer" class="w-4 h-4"></i>
-            <span>?? / PDF</span>
+            <span>인쇄 / PDF</span>
           </button>
-          <button id="theme-toggle" onclick="toggleDarkMode()" class="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition" title="??/??? ??">
+          <button id="theme-toggle" onclick="toggleDarkMode()" class="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition" title="다크/라이트 모드">
             <i data-lucide="moon" id="theme-icon" class="w-5 h-5"></i>
           </button>
         </div>
@@ -58,27 +58,27 @@
       <nav id="tab-nav-container" class="flex gap-1 sm:gap-2 overflow-x-auto border-t border-slate-100 dark:border-slate-800/80 -mb-px text-sm">
         <button class="nav-tab active flex items-center gap-2 py-3 px-3.5 border-b-2 font-medium transition whitespace-nowrap" data-tab="dashboard" onclick="switchTab('dashboard')">
           <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
-          <span>????</span>
+          <span>대시보드</span>
         </button>
         <button class="nav-tab flex items-center gap-2 py-3 px-3.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium transition whitespace-nowrap" data-tab="products" onclick="switchTab('products')">
           <i data-lucide="boxes" class="w-4 h-4"></i>
-          <span>?? & ?? ??</span>
+          <span>제품 & 검사 관리</span>
         </button>
         <button class="nav-tab flex items-center gap-2 py-3 px-3.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium transition whitespace-nowrap" data-tab="types" onclick="switchTab('types')">
           <i data-lucide="tags" class="w-4 h-4"></i>
-          <span>???? ??</span>
+          <span>식품유형 관리</span>
         </button>
         <button class="nav-tab flex items-center gap-2 py-3 px-3.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium transition whitespace-nowrap" data-tab="health" onclick="switchTab('health')">
           <i data-lucide="clipboard-check" class="w-4 h-4"></i>
-          <span>??? ??</span>
+          <span>보건증 관리</span>
         </button>
         <button class="nav-tab flex items-center gap-2 py-3 px-3.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium transition whitespace-nowrap" data-tab="certs" onclick="switchTab('certs')">
           <i data-lucide="award" class="w-4 h-4"></i>
-          <span>??? ??</span>
+          <span>성적서 관리</span>
         </button>
         <button class="nav-tab flex items-center gap-2 py-3 px-3.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium transition whitespace-nowrap" data-tab="settings" onclick="switchTab('settings')">
           <i data-lucide="settings-2" class="w-4 h-4"></i>
-          <span>?? & ??</span>
+          <span>설정 & 백업</span>
         </button>
       </nav>
     </div>
@@ -92,7 +92,7 @@
         <div class="flex items-start gap-3">
           <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600 shrink-0 mt-0.5"></i>
           <div class="flex-1">
-            <h3 class="font-semibold text-sm">?? ?? ?? ??? ????!</h3>
+            <h3 class="font-semibold text-sm">긴급 조치 필요 품목이 있습니다!</h3>
             <p id="urgent-banner-text" class="text-xs text-red-700 dark:text-red-300 mt-0.5"></p>
           </div>
         </div>
@@ -102,52 +102,52 @@
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <div class="app-card p-4 flex flex-col justify-between cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 transition" onclick="setDashboardFilter('all')">
           <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
-            <span>?? ?? ??</span>
+            <span>전체 관리 품목</span>
             <i data-lucide="boxes" class="w-4 h-4 text-blue-500"></i>
           </div>
           <div class="mt-2 flex items-baseline gap-1">
             <span id="kpi-total" class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">0</span>
-            <span class="text-xs text-slate-500">?</span>
+            <span class="text-xs text-slate-500">개</span>
           </div>
         </div>
         <div class="app-card p-4 flex flex-col justify-between cursor-pointer hover:border-red-300 dark:hover:border-red-700 transition border-l-4 border-l-red-500" onclick="setDashboardFilter('overdue')">
           <div class="flex items-center justify-between text-red-600 dark:text-red-400 text-xs font-medium">
-            <span>?? ?? (??)</span>
+            <span>기간 초과 (긴급)</span>
             <i data-lucide="alert-octagon" class="w-4 h-4 text-red-500"></i>
           </div>
           <div class="mt-2 flex items-baseline gap-1">
             <span id="kpi-overdue" class="text-2xl sm:text-3xl font-bold text-red-600 dark:text-red-400">0</span>
-            <span class="text-xs text-red-500">?</span>
+            <span class="text-xs text-red-500">건</span>
           </div>
         </div>
         <div class="app-card p-4 flex flex-col justify-between cursor-pointer hover:border-amber-300 dark:hover:border-amber-700 transition border-l-4 border-l-amber-500" onclick="setDashboardFilter('urgent')">
           <div class="flex items-center justify-between text-amber-600 dark:text-amber-400 text-xs font-medium">
-            <span>?? ?? (??)</span>
+            <span>사전 알림 (임박)</span>
             <i data-lucide="bell-ring" class="w-4 h-4 text-amber-500"></i>
           </div>
           <div class="mt-2 flex items-baseline gap-1">
             <span id="kpi-urgent" class="text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">0</span>
-            <span class="text-xs text-amber-500">?</span>
+            <span class="text-xs text-amber-500">건</span>
           </div>
         </div>
         <div class="app-card p-4 flex flex-col justify-between cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-700 transition border-l-4 border-l-emerald-500" onclick="setDashboardFilter('safe')">
           <div class="flex items-center justify-between text-emerald-600 dark:text-emerald-400 text-xs font-medium">
-            <span>?? (??)</span>
+            <span>정상 (여유)</span>
             <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500"></i>
           </div>
           <div class="mt-2 flex items-baseline gap-1">
             <span id="kpi-safe" class="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">0</span>
-            <span class="text-xs text-emerald-500">?</span>
+            <span class="text-xs text-emerald-500">건</span>
           </div>
         </div>
         <div class="app-card p-4 flex flex-col justify-between cursor-pointer hover:border-purple-300 dark:hover:border-purple-700 transition border-l-4 border-l-purple-500 col-span-2 sm:col-span-1" onclick="switchTab('health')">
           <div class="flex items-center justify-between text-purple-600 dark:text-purple-400 text-xs font-medium">
-            <span>??? ??</span>
+            <span>보건증 주의</span>
             <i data-lucide="user-check" class="w-4 h-4 text-purple-500"></i>
           </div>
           <div class="mt-2 flex items-baseline gap-1">
             <span id="kpi-health-warning" class="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">0</span>
-            <span class="text-xs text-purple-500">?</span>
+            <span class="text-xs text-purple-500">명</span>
           </div>
         </div>
       </div>
@@ -157,27 +157,27 @@
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span>?????? ??? ??</span>
-              <span id="dash-filtered-count" class="text-xs font-normal text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">0?</span>
+              <span>자가품질검사 스케줄 현황</span>
+              <span id="dash-filtered-count" class="text-xs font-normal text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">0건</span>
             </h2>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">?? ??? ?? ?? ?? ??? ? D-Day ??? ?????.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">최근 제조일 기준 법정 검사 마감일 및 D-Day 실시간 현황입니다.</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <div class="relative min-w-[180px]">
               <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
-              <input type="text" id="dash-search-input" oninput="renderDashboard()" placeholder="???/?? ??..." class="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <input type="text" id="dash-search-input" oninput="renderDashboard()" placeholder="제품명/유형 검색..." class="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
             <select id="dash-status-select" onchange="renderDashboard()" class="py-1.5 px-3 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="all">?? ??</option>
-              <option value="overdue">?? ?? ??</option>
-              <option value="urgent">?? ?? ??</option>
-              <option value="safe">? ?? ??</option>
-              <option value="stopped">?? ?? ??</option>
-              <option value="paused">?? ?? ??</option>
+              <option value="all">전체 상태</option>
+              <option value="overdue">🚨 기간 초과</option>
+              <option value="urgent">⚠️ 사전 알림</option>
+              <option value="safe">✅ 여유 있음</option>
+              <option value="stopped">⏸️ 생산 중단</option>
+              <option value="paused">🔕 알림 중지</option>
             </select>
             <button onclick="openAddProductModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition">
               <i data-lucide="plus" class="w-4 h-4"></i>
-              <span>?? ??</span>
+              <span>제품 등록</span>
             </button>
           </div>
         </div>
@@ -186,14 +186,14 @@
           <table class="w-full text-left text-xs text-slate-600 dark:text-slate-300">
             <thead class="bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800 uppercase tracking-wider">
               <tr>
-                <th class="py-3 px-4">?? / D-Day</th>
-                <th class="py-3 px-4">???</th>
-                <th class="py-3 px-4">????</th>
-                <th class="py-3 px-4">????</th>
-                <th class="py-3 px-4">?? ??(??)?</th>
-                <th class="py-3 px-4">?? ???</th>
-                <th class="py-3 px-4 text-center">?? ?? ??</th>
-                <th class="py-3 px-4 text-right action-column">??</th>
+                <th class="py-3 px-4">상태 / D-Day</th>
+                <th class="py-3 px-4">제품명</th>
+                <th class="py-3 px-4">식품유형</th>
+                <th class="py-3 px-4">검사주기</th>
+                <th class="py-3 px-4">최근 제조(검사)일</th>
+                <th class="py-3 px-4">검사 마감일</th>
+                <th class="py-3 px-4 text-center">빠른 검사 갱신</th>
+                <th class="py-3 px-4 text-right action-column">관리</th>
               </tr>
             </thead>
             <tbody id="dashboard-table-body" class="divide-y divide-slate-200 dark:divide-slate-800">
@@ -209,19 +209,19 @@
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span>??? ???? ? ?? ??</span>
+              <span>품목별 품질검사 및 제조 관리</span>
             </h2>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">?? ??? ??????? ?? ?? ? ?? ??? ?????.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">제품 목록을 등록·수정하고 생산 중단 및 검사 이력을 관리합니다.</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <button onclick="document.getElementById('excel-import-file').click()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition">
               <i data-lucide="upload" class="w-4 h-4"></i>
-              <span>?? ?? ???</span>
+              <span>엑셀 일괄 업로드</span>
             </button>
             <input type="file" id="excel-import-file" onchange="handleExcelUpload(event)" accept=".xlsx, .xls, .csv" class="hidden">
             <button onclick="openAddProductModal()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition">
               <i data-lucide="plus" class="w-4 h-4"></i>
-              <span>? ?? ??</span>
+              <span>새 제품 추가</span>
             </button>
           </div>
         </div>
@@ -230,15 +230,15 @@
           <table class="w-full text-left text-xs text-slate-600 dark:text-slate-300">
             <thead class="bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800 uppercase tracking-wider">
               <tr>
-                <th class="py-3 px-4">???</th>
-                <th class="py-3 px-4">????</th>
-                <th class="py-3 px-4">??</th>
-                <th class="py-3 px-4">?????</th>
-                <th class="py-3 px-4">?????</th>
-                <th class="py-3 px-4">????</th>
-                <th class="py-3 px-4">????</th>
-                <th class="py-3 px-4">??</th>
-                <th class="py-3 px-4 text-right action-column">??</th>
+                <th class="py-3 px-4">제품명</th>
+                <th class="py-3 px-4">식품유형</th>
+                <th class="py-3 px-4">주기</th>
+                <th class="py-3 px-4">최근제조일</th>
+                <th class="py-3 px-4">차기마감일</th>
+                <th class="py-3 px-4">생산상태</th>
+                <th class="py-3 px-4">알림상태</th>
+                <th class="py-3 px-4">비고</th>
+                <th class="py-3 px-4 text-right action-column">동작</th>
               </tr>
             </thead>
             <tbody id="products-table-body" class="divide-y divide-slate-200 dark:divide-slate-800">
@@ -254,13 +254,13 @@
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span>???? ? ?? ???? ??</span>
+              <span>식품유형 및 법정 검사주기 설정</span>
             </h2>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">???? ? ?? ??? ?? ??? ?????? ??(??)? ?? ????? ?????.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">식품공전 및 사내 기준에 따른 유형별 자가품질검사 주기(개월)와 주요 시험항목을 관리합니다.</p>
           </div>
           <button onclick="openAddTypeModal()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition">
             <i data-lucide="plus" class="w-4 h-4"></i>
-            <span>? ???? ??</span>
+            <span>새 식품유형 등록</span>
           </button>
         </div>
 
@@ -268,11 +268,11 @@
           <table class="w-full text-left text-xs text-slate-600 dark:text-slate-300">
             <thead class="bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800 uppercase tracking-wider">
               <tr>
-                <th class="py-3 px-4">?????</th>
-                <th class="py-3 px-4">?? ?? ??</th>
-                <th class="py-3 px-4">?? ?? ????</th>
-                <th class="py-3 px-4">??? ?? ?</th>
-                <th class="py-3 px-4 text-right action-column">??</th>
+                <th class="py-3 px-4">식품유형명</th>
+                <th class="py-3 px-4">기준 검사 주기</th>
+                <th class="py-3 px-4">주요 시험 검사항목</th>
+                <th class="py-3 px-4">등록된 제품 수</th>
+                <th class="py-3 px-4 text-right action-column">관리</th>
               </tr>
             </thead>
             <tbody id="types-table-body" class="divide-y divide-slate-200 dark:divide-slate-800">
@@ -288,14 +288,14 @@
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span>?? ??? (???????) ??</span>
+              <span>직원 보건증 (건강진단결과서) 관리</span>
             </h2>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">???? ??? ??? ????(1?)? ?? ??(D-30) ?? ? ??? ?????.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">식품위생 종사자 보건증 유효기간(1년)과 만료 임박(D-30) 알림 및 사본을 보관합니다.</p>
           </div>
           <div class="flex items-center gap-2">
             <button onclick="openAddHealthCertModal()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition">
               <i data-lucide="plus" class="w-4 h-4"></i>
-              <span>??? ??</span>
+              <span>보건증 등록</span>
             </button>
           </div>
         </div>
@@ -304,14 +304,14 @@
           <table class="w-full text-left text-xs text-slate-600 dark:text-slate-300">
             <thead class="bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800 uppercase tracking-wider">
               <tr>
-                <th class="py-3 px-4">?? / D-Day</th>
-                <th class="py-3 px-4">????</th>
-                <th class="py-3 px-4">??/??</th>
-                <th class="py-3 px-4">????</th>
-                <th class="py-3 px-4">????</th>
-                <th class="py-3 px-4">??? ??(PDF)</th>
-                <th class="py-3 px-4">??</th>
-                <th class="py-3 px-4 text-right action-column">??</th>
+                <th class="py-3 px-4">상태 / D-Day</th>
+                <th class="py-3 px-4">담당자명</th>
+                <th class="py-3 px-4">부서/직무</th>
+                <th class="py-3 px-4">발급일자</th>
+                <th class="py-3 px-4">만료일자</th>
+                <th class="py-3 px-4">보건증 사본(PDF)</th>
+                <th class="py-3 px-4">비고</th>
+                <th class="py-3 px-4 text-right action-column">관리</th>
               </tr>
             </thead>
             <tbody id="health-table-body" class="divide-y divide-slate-200 dark:divide-slate-800">
@@ -327,13 +327,13 @@
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span>?? ??? ???</span>
+              <span>검사 성적서 보관함</span>
             </h2>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">?????? ??? ??(PDF/???)? ??? ??? ?? ???? ?????.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">공인검사기관 성적서 사본(PDF/이미지)을 성적서 번호와 함께 안전하게 보관합니다.</p>
           </div>
           <button onclick="openUploadCertModal()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition">
             <i data-lucide="upload" class="w-4 h-4"></i>
-            <span>??? ??</span>
+            <span>성적서 등록</span>
           </button>
         </div>
 
@@ -341,12 +341,12 @@
           <table class="w-full text-left text-xs text-slate-600 dark:text-slate-300">
             <thead class="bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800 uppercase tracking-wider">
               <tr>
-                <th class="py-3 px-4">??? ??</th>
-                <th class="py-3 px-4">??? / ????</th>
-                <th class="py-3 px-4">????</th>
-                <th class="py-3 px-4">??? / ??</th>
-                <th class="py-3 px-4">????</th>
-                <th class="py-3 px-4 text-right action-column">???? / ??</th>
+                <th class="py-3 px-4">성적서 번호</th>
+                <th class="py-3 px-4">제품명 / 식품유형</th>
+                <th class="py-3 px-4">검사일자</th>
+                <th class="py-3 px-4">파일명 / 크기</th>
+                <th class="py-3 px-4">등록일시</th>
+                <th class="py-3 px-4 text-right action-column">다운로드 / 관리</th>
               </tr>
             </thead>
             <tbody id="certs-table-body" class="divide-y divide-slate-200 dark:divide-slate-800">
@@ -361,9 +361,9 @@
       <div class="app-card p-5 space-y-4">
         <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <i data-lucide="send" class="w-5 h-5 text-blue-500"></i>
-          <span>???? ?? ??</span>
+          <span>텔레그램 알림 연동</span>
         </h2>
-        <p class="text-xs text-slate-500 dark:text-slate-400">Telegram Bot Token ? Chat ID? ???? ?????? ?? ?? ?? ??? ??? ? ????.</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Telegram Bot Token 및 Chat ID를 입력하면 브라우저에서 바로 마감 임박 알림을 전송할 수 있습니다.</p>
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
           <div>
@@ -372,16 +372,16 @@
           </div>
           <div>
             <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Telegram Chat ID</label>
-            <input type="text" id="setting-tg-chatid" placeholder="-1001234567890 ?? @channel_name" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+            <input type="text" id="setting-tg-chatid" placeholder="-1001234567890 또는 @channel_name" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
           </div>
         </div>
         <div class="flex items-center gap-3 pt-2">
           <button onclick="saveTelegramSettings()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition">
-            ???? ?? ??
+            텔레그램 설정 저장
           </button>
           <button onclick="testTelegramNotification()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-lg text-xs transition flex items-center gap-1.5">
             <i data-lucide="send" class="w-3.5 h-3.5"></i>
-            <span>?? ?? ?? ??</span>
+            <span>시험 알림 즉시 발송</span>
           </button>
         </div>
       </div>
@@ -389,50 +389,50 @@
       <div class="app-card p-5 space-y-4">
         <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <i data-lucide="bell" class="w-5 h-5 text-amber-500"></i>
-          <span>?? ?? ??? ??</span>
+          <span>사전 알림 기준일 설정</span>
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
           <div>
-            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?????? ?? ?? ?? (?? 14? ?)</label>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">자가품질검사 사전 알림 기준 (기본 14일 전)</label>
             <input type="number" id="setting-warning-days" value="14" min="1" max="90" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
           </div>
           <div>
-            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??? ?? ?? ?? (?? 30? ?)</label>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">보건증 사전 알림 기준 (기본 30일 전)</label>
             <input type="number" id="setting-health-warning-days" value="30" min="1" max="90" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
           </div>
         </div>
         <button onclick="saveNotificationDays()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition">
-          ?? ??? ??
+          알림 기준일 저장
         </button>
       </div>
 
       <div class="app-card p-5 space-y-4">
         <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <i data-lucide="database" class="w-5 h-5 text-emerald-500"></i>
-          <span>??? ?? & ??</span>
+          <span>데이터 백업 & 복원</span>
         </h2>
-        <p class="text-xs text-slate-500 dark:text-slate-400">?? ??, ????, ??? ???? ??? ????? ??? ? ????.</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400">모든 품목, 검사주기, 보건증 데이터를 파일로 내보내거나 복원할 수 있습니다.</p>
 
         <div class="flex flex-wrap items-center gap-3 pt-1">
           <button onclick="exportJSONBackup()" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition">
             <i data-lucide="download" class="w-4 h-4"></i>
-            <span>?? ?? ???? (.json)</span>
+            <span>전체 백업 다운로드 (.json)</span>
           </button>
           
           <button onclick="document.getElementById('restore-json-file').click()" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition">
             <i data-lucide="upload" class="w-4 h-4"></i>
-            <span>?? ?? ?? (.json)</span>
+            <span>백업 파일 복원 (.json)</span>
           </button>
           <input type="file" id="restore-json-file" onchange="handleRestoreJSON(event)" accept=".json" class="hidden">
 
           <button onclick="loadSampleData(true)" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition">
             <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-            <span>?? ?? ??? ????</span>
+            <span>기본 샘플 데이터 불러오기</span>
           </button>
 
           <button onclick="resetAllData()" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800 transition">
             <i data-lucide="trash-2" class="w-4 h-4"></i>
-            <span>??? ?? ???</span>
+            <span>데이터 전체 초기화</span>
           </button>
         </div>
       </div>
@@ -442,7 +442,7 @@
 
   <footer class="mt-auto py-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400 no-print">
     <div class="max-w-7xl mx-auto px-4">
-      <p>? 2026 (?)???? ?????? ??? ? ???? ?? ???? ?? ??? ?? ??</p>
+      <p>&copy; 2026 (주)코엔에프 자가품질검사 시스템 &bull; 브라우저 로컬 스토리지 기반 안전한 독립 웹앱</p>
     </div>
   </footer>
 
@@ -450,7 +450,7 @@
   <div id="modal-product" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden">
     <div class="modal-content bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-        <h3 id="modal-product-title" class="font-bold text-slate-900 dark:text-white text-base">?? ??</h3>
+        <h3 id="modal-product-title" class="font-bold text-slate-900 dark:text-white text-base">제품 등록</h3>
         <button onclick="closeModal('modal-product')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
@@ -458,31 +458,31 @@
       <form id="form-product" onsubmit="handleSaveProduct(event)" class="mt-4 space-y-4 text-xs">
         <input type="hidden" id="prod-id">
         <div>
-          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??? *</label>
-          <input type="text" id="prod-name" required placeholder="?: ???? ??? ????" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">제품명 *</label>
+          <input type="text" id="prod-name" required placeholder="예: 코엔에프 유자차 프리미엄" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">???? *</label>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">식품유형 *</label>
             <select id="prod-type-id" required onchange="handleProductTypeChange()" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
             </select>
           </div>
           <div>
-            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ?? (??) *</label>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">검사 주기 (개월) *</label>
             <input type="number" id="prod-interval" required min="1" max="24" value="2" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
           </div>
         </div>
         <div>
-          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ??(??)?? *</label>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">최근 제조(검사)일자 *</label>
           <input type="date" id="prod-last-date" required class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
         <div>
-          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? / ??</label>
-          <textarea id="prod-memo" rows="2" placeholder="?? ??, ???? ?..." class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">비고 / 메모</label>
+          <textarea id="prod-memo" rows="2" placeholder="생산 라인, 특이사항 등..." class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
         </div>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" onclick="closeModal('modal-product')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">??</button>
-          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm">??</button>
+          <button type="button" onclick="closeModal('modal-product')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">취소</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm">저장</button>
         </div>
       </form>
     </div>
@@ -494,7 +494,7 @@
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
         <h3 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
           <i data-lucide="check-circle" class="w-5 h-5 text-emerald-500"></i>
-          <span>?? ?? / ??? ??</span>
+          <span>검사 완료 / 제조일 갱신</span>
         </h3>
         <button onclick="closeModal('modal-quick-renew')" class="text-slate-400 hover:text-slate-600">
           <i data-lucide="x" class="w-5 h-5"></i>
@@ -507,16 +507,16 @@
           <div class="text-xs text-slate-500 mt-1" id="renew-prod-info"></div>
         </div>
         <div>
-          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">? ???(?? ????) *</label>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">새 제조일(또는 검사일자) *</label>
           <input type="date" id="renew-date" required class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
         </div>
         <div>
-          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ?? ??</label>
-          <input type="text" id="renew-memo" placeholder="?: 2026-08? ???? ?? (??)" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">이력 기록 메모</label>
+          <input type="text" id="renew-memo" placeholder="예: 2026-08월 정기검사 완료 (적합)" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
         </div>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" onclick="closeModal('modal-quick-renew')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 font-medium">??</button>
-          <button type="submit" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">?? ??</button>
+          <button type="button" onclick="closeModal('modal-quick-renew')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 font-medium">취소</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">갱신 완료</button>
         </div>
       </form>
     </div>
@@ -526,7 +526,7 @@
   <div id="modal-type" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden">
     <div class="modal-content bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-        <h3 id="modal-type-title" class="font-bold text-slate-900 dark:text-white text-base">???? ??</h3>
+        <h3 id="modal-type-title" class="font-bold text-slate-900 dark:text-white text-base">식품유형 등록</h3>
         <button onclick="closeModal('modal-type')" class="text-slate-400 hover:text-slate-600">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
@@ -534,20 +534,20 @@
       <form id="form-type" onsubmit="handleSaveType(event)" class="mt-4 space-y-4 text-xs">
         <input type="hidden" id="type-id">
         <div>
-          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">????? *</label>
-          <input type="text" id="type-name" required placeholder="?: ???, ?????, ?????..." class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">식품유형명 *</label>
+          <input type="text" id="type-name" required placeholder="예: 액상차, 음료베이스, 기타가공품..." class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
         </div>
         <div>
-          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ?? ?? (??) *</label>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">법정 검사 주기 (개월) *</label>
           <input type="number" id="type-interval" required min="1" max="24" value="2" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
         </div>
         <div>
-          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ?? ????</label>
-          <textarea id="type-items" rows="3" placeholder="?: ???, ????, ????, ???..." class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"></textarea>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">주요 시험 검사항목</label>
+          <textarea id="type-items" rows="3" placeholder="예: 세균수, 대장균군, 타르색소, 보존료..." class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"></textarea>
         </div>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" onclick="closeModal('modal-type')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 font-medium">??</button>
-          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">??</button>
+          <button type="button" onclick="closeModal('modal-type')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 font-medium">취소</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">저장</button>
         </div>
       </form>
     </div>
@@ -557,7 +557,7 @@
   <div id="modal-health" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden">
     <div class="modal-content bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-        <h3 id="modal-health-title" class="font-bold text-slate-900 dark:text-white text-base">??? ??</h3>
+        <h3 id="modal-health-title" class="font-bold text-slate-900 dark:text-white text-base">보건증 등록</h3>
         <button onclick="closeModal('modal-health')" class="text-slate-400 hover:text-slate-600">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
@@ -566,36 +566,36 @@
         <input type="hidden" id="health-id">
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??? ?? *</label>
-            <input type="text" id="health-name" required placeholder="???" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">담당자 성명 *</label>
+            <input type="text" id="health-name" required placeholder="홍길동" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
           </div>
           <div>
-            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ?? / ??</label>
-            <input type="text" id="health-dept" placeholder="?????, ??1?..." class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">소속 부서 / 직무</label>
+            <input type="text" id="health-dept" placeholder="품질관리팀, 생산1팀..." class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
           </div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??/???? *</label>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">검진/발급일자 *</label>
             <input type="date" id="health-issued" required onchange="handleHealthIssuedChange()" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
           </div>
           <div>
-            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">???? (1? ? ??) *</label>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">만료일자 (1년 후 자동) *</label>
             <input type="date" id="health-expires" required class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
           </div>
         </div>
         <div>
-          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??? ?? ?? (PDF / ??? ??)</label>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">보건증 사본 첨부 (PDF / 이미지 파일)</label>
           <input type="file" id="health-file" accept=".pdf, image/*" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
-          <p class="text-[11px] text-slate-400 mt-0.5">??? ??? ???? ??? ?? ???? ??? ??/???? ?????.</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">첨부된 파일은 브라우저 내부에 영구 저장되어 언제든 열람/다운로드 가능합니다.</p>
         </div>
         <div>
-          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??</label>
-          <textarea id="health-memo" rows="2" placeholder="?? ??, ?? ???? ?..." class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"></textarea>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">메모</label>
+          <textarea id="health-memo" rows="2" placeholder="검진 병원, 갱신 특이사항 등..." class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"></textarea>
         </div>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" onclick="closeModal('modal-health')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 font-medium">??</button>
-          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">??</button>
+          <button type="button" onclick="closeModal('modal-health')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 font-medium">취소</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">저장</button>
         </div>
       </form>
     </div>
@@ -605,38 +605,38 @@
   <div id="modal-upload-cert" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden">
     <div class="modal-content bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-        <h3 class="font-bold text-slate-900 dark:text-white text-base">?? ??? ??</h3>
+        <h3 class="font-bold text-slate-900 dark:text-white text-base">검사 성적서 등록</h3>
         <button onclick="closeModal('modal-upload-cert')" class="text-slate-400 hover:text-slate-600">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
       <form id="form-upload-cert" onsubmit="handleSaveCert(event)" class="mt-4 space-y-4 text-xs">
         <div>
-          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??? ?? (?? ?? ?? ??)</label>
-          <input type="text" id="cert-number" placeholder="?: CONF-QC-2026-001" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">성적서 번호 (자동 채번 또는 직접 입력)</label>
+          <input type="text" id="cert-number" placeholder="예: CONF-QC-2026-001" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ?? ??</label>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">해당 제품 선택</label>
             <select id="cert-product-id" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
             </select>
           </div>
           <div>
-            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ?? *</label>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">검사 일자 *</label>
             <input type="date" id="cert-date" required class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
           </div>
         </div>
         <div>
-          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??? ?? (PDF / ???) *</label>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">성적서 파일 (PDF / 이미지) *</label>
           <input type="file" id="cert-file" required accept=".pdf, image/*" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
         </div>
         <div>
-          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? / ?????</label>
-          <input type="text" id="cert-memo" placeholder="?: ??????? (??)" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">메모 / 검사기관명</label>
+          <input type="text" id="cert-memo" placeholder="예: 한국식품연구원 (적합)" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
         </div>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" onclick="closeModal('modal-upload-cert')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 font-medium">??</button>
-          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">??? ??</button>
+          <button type="button" onclick="closeModal('modal-upload-cert')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 font-medium">취소</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">성적서 저장</button>
         </div>
       </form>
     </div>
@@ -647,7 +647,7 @@
     <div class="modal-content bg-white dark:bg-slate-900 rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[85vh] flex flex-col">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
         <div>
-          <h3 id="history-modal-title" class="font-bold text-slate-900 dark:text-white text-base">?? ? ?? ??</h3>
+          <h3 id="history-modal-title" class="font-bold text-slate-900 dark:text-white text-base">검사 및 제조 이력</h3>
           <p id="history-modal-subtitle" class="text-xs text-slate-500 mt-0.5"></p>
         </div>
         <button onclick="closeModal('modal-history')" class="text-slate-400 hover:text-slate-600">
@@ -657,7 +657,7 @@
       <div id="history-timeline-content" class="flex-1 overflow-y-auto py-4 space-y-3 text-xs">
       </div>
       <div class="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
-        <button type="button" onclick="closeModal('modal-history')" class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium text-xs">??</button>
+        <button type="button" onclick="closeModal('modal-history')" class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium text-xs">닫기</button>
       </div>
     </div>
   </div>
@@ -666,7 +666,7 @@
   <div id="modal-stop" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden">
     <div class="modal-content bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-        <h3 id="stop-modal-title" class="font-bold text-slate-900 dark:text-white text-base">?? ?? ??</h3>
+        <h3 id="stop-modal-title" class="font-bold text-slate-900 dark:text-white text-base">생산 상태 변경</h3>
         <button onclick="closeModal('modal-stop')" class="text-slate-400 hover:text-slate-600">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
@@ -676,16 +676,16 @@
         <input type="hidden" id="stop-action-type">
         <p id="stop-modal-desc" class="text-slate-600 dark:text-slate-300"></p>
         <div id="stop-reason-box">
-          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ??</label>
-          <input type="text" id="stop-reason-input" placeholder="?: ??? ?? ??? ?? ?? ??" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">사유 입력</label>
+          <input type="text" id="stop-reason-input" placeholder="예: 계절성 품목 비수기 일시 생산 중단" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
         </div>
         <div id="resume-date-box" class="hidden">
-          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??? ???? *</label>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">재생산 제조일자 *</label>
           <input type="date" id="resume-date-input" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
         </div>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" onclick="closeModal('modal-stop')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 font-medium">??</button>
-          <button type="submit" id="stop-submit-btn" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">??</button>
+          <button type="button" onclick="closeModal('modal-stop')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 font-medium">취소</button>
+          <button type="submit" id="stop-submit-btn" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">확인</button>
         </div>
       </form>
     </div>
