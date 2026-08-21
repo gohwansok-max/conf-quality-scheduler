@@ -19,6 +19,9 @@ try {
 const STORAGE_KEY = 'koenf_quality_data_v3';
 // 텔레그램 인증값은 일반 업무 데이터와 분리해 백업·초기화 후에도 현재 브라우저에 유지합니다.
 const TELEGRAM_SETTINGS_KEY = 'koenf_telegram_settings_v1';
+const TELEGRAM_CLOUD_KEY = 'telegram_sync_v1';
+const TELEGRAM_ENCRYPTION_VERSION = 1;
+const TELEGRAM_PBKDF2_ITERATIONS = 150000;
 
 const DEFAULT_DATA = {
   types: [
@@ -113,12 +116,108 @@ function updateTelegramSettingsStatus() {
   const hasChatId = Boolean(appState.settings?.telegramChatId);
   if (hasToken && hasChatId) {
     status.className = 'inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300';
-    status.innerHTML = '<i data-lucide="lock-keyhole" class="w-3.5 h-3.5"></i><span>고정 저장됨 · 이 브라우저에서 계속 유지됩니다</span>';
+    status.innerHTML = '<i data-lucide="lock-keyhole" class="w-3.5 h-3.5"></i><span>이 기기에 고정 저장됨</span>';
   } else {
     status.className = 'inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400';
     status.innerHTML = '<i data-lucide="circle-alert" class="w-3.5 h-3.5"></i><span>Bot Token과 Chat ID를 모두 입력해 저장하세요</span>';
   }
   lucide.createIcons();
+}
+
+function updateTelegramCloudStatus(message, type = 'info') {
+  const status = document.getElementById('telegram-cloud-status');
+  if (!status) return;
+  const styles = {
+    success: 'text-emerald-700 dark:text-emerald-300',
+    error: 'text-red-600 dark:text-red-300',
+    info: 'text-slate-500 dark:text-slate-400'
+  };
+  const icons = { success: 'cloud-check', error: 'cloud-off', info: 'cloud' };
+  status.className = `inline-flex items-center gap-1.5 text-xs font-medium ${styles[type] || styles.info}`;
+  status.innerHTML = `<i data-lucide="${icons[type] || icons.info}" class="w-3.5 h-3.5 shrink-0"></i><span>${escapeHtml(message)}</span>`;
+  lucide.createIcons();
+}
+
+function toBase64(bytes) {
+  let binary = '';
+  bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+  return btoa(binary);
+}
+
+function fromBase64(value) {
+  const binary = atob(value);
+  return Uint8Array.from(binary, char => char.charCodeAt(0));
+}
+
+async function deriveTelegramEncryptionKey(passphrase, salt) {
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(passphrase),
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: TELEGRAM_PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function encryptTelegramCloudPayload(payload, passphrase) {
+  if (!window.crypto?.subtle) throw new Error('이 브라우저는 암호화 동기화를 지원하지 않습니다.');
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveTelegramEncryptionKey(passphrase, salt);
+  const plainBytes = new TextEncoder().encode(JSON.stringify(payload));
+  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plainBytes);
+  return JSON.stringify({
+    version: TELEGRAM_ENCRYPTION_VERSION,
+    algorithm: 'AES-GCM',
+    salt: toBase64(salt),
+    iv: toBase64(iv),
+    ciphertext: toBase64(new Uint8Array(encrypted))
+  });
+}
+
+async function decryptTelegramCloudPayload(value, passphrase) {
+  const envelope = JSON.parse(value);
+  if (envelope.version !== TELEGRAM_ENCRYPTION_VERSION || !envelope.salt || !envelope.iv || !envelope.ciphertext) {
+    throw new Error('지원하지 않는 동기화 데이터 형식입니다.');
+  }
+  const key = await deriveTelegramEncryptionKey(passphrase, fromBase64(envelope.salt));
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromBase64(envelope.iv) }, key, fromBase64(envelope.ciphertext));
+  const payload = JSON.parse(new TextDecoder().decode(plain));
+  if (!payload.telegramBotToken || !payload.telegramChatId) throw new Error('동기화 데이터가 완전하지 않습니다.');
+  return payload;
+}
+
+function getTelegramSyncPassphrase() {
+  return document.getElementById('setting-tg-sync-password')?.value.trim() || '';
+}
+
+async function getTelegramCloudRecord() {
+  if (!supabaseClient || !isCloudConnected) throw new Error('클라우드 연결 후 다시 시도하세요.');
+  const { data, error } = await supabaseClient
+    .from('quality_settings')
+    .select('key,value')
+    .eq('key', TELEGRAM_CLOUD_KEY)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
+async function saveTelegramCloudRecord(value) {
+  const existing = await getTelegramCloudRecord();
+  if (existing) {
+    const { error } = await supabaseClient.from('quality_settings').update({ value }).eq('key', TELEGRAM_CLOUD_KEY);
+    if (error) throw error;
+  } else {
+    const { error } = await supabaseClient.from('quality_settings').insert([{ key: TELEGRAM_CLOUD_KEY, value }]);
+    if (error) throw error;
+  }
 }
 
 function updateCloudBadge(connected) {
@@ -649,6 +748,7 @@ function renderSettings() {
   document.getElementById('setting-warning-days').value = appState.settings.warningDays || 14;
   document.getElementById('setting-health-warning-days').value = appState.settings.healthWarningDays || 30;
   updateTelegramSettingsStatus();
+  updateTelegramCloudStatus(isCloudConnected ? '암호화 암호를 입력한 뒤 다른 기기와 동기화할 수 있습니다.' : '클라우드 연결을 확인한 뒤 동기화할 수 있습니다.');
 }
 
 // ==================== 5. Modals & Cloud Mutations ====================
@@ -1478,13 +1578,76 @@ function saveTelegramSettings() {
 }
 
 function clearTelegramSettings() {
-  if (!confirm('저장된 Telegram Bot Token과 Chat ID를 이 브라우저에서 삭제하시겠습니까?')) return;
+  if (!confirm('이 기기에 고정 저장된 Telegram Bot Token과 Chat ID를 삭제하시겠습니까? 클라우드 동기화본은 삭제되지 않습니다.')) return;
   localStorage.removeItem(TELEGRAM_SETTINGS_KEY);
   appState.settings.telegramBotToken = '';
   appState.settings.telegramChatId = '';
   saveLocalState();
   renderSettings();
-  showToast('고정 저장된 텔레그램 설정을 삭제했습니다.', 'info');
+  showToast('이 기기의 텔레그램 설정을 삭제했습니다. 클라우드 동기화본은 유지됩니다.', 'info');
+}
+
+async function syncTelegramSettingsToCloud() {
+  const token = appState.settings.telegramBotToken;
+  const chatId = appState.settings.telegramChatId;
+  const passphrase = getTelegramSyncPassphrase();
+  if (!token || !chatId) {
+    showToast('먼저 Bot Token과 Chat ID를 이 기기에 저장하세요.', 'error');
+    return;
+  }
+  if (passphrase.length < 8) {
+    showToast('동기화 암호는 8자 이상으로 입력하세요.', 'error');
+    return;
+  }
+  try {
+    updateTelegramCloudStatus('암호화하여 클라우드에 저장하는 중...', 'info');
+    const payload = {
+      telegramBotToken: token,
+      telegramChatId: chatId,
+      savedAt: new Date().toISOString()
+    };
+    const encryptedValue = await encryptTelegramCloudPayload(payload, passphrase);
+    await saveTelegramCloudRecord(encryptedValue);
+    updateTelegramCloudStatus(`클라우드 동기화 완료 · ${new Date(payload.savedAt).toLocaleString('ko-KR')}`, 'success');
+    showToast('텔레그램 설정을 암호화해 클라우드에 동기화했습니다.', 'success');
+  } catch (error) {
+    console.error('텔레그램 클라우드 동기화 실패:', error);
+    updateTelegramCloudStatus('클라우드 동기화에 실패했습니다. 암호와 연결 상태를 확인하세요.', 'error');
+    showToast(`클라우드 저장 실패: ${error.message || '연결 상태를 확인하세요.'}`, 'error');
+  }
+}
+
+async function importTelegramSettingsFromCloud() {
+  const passphrase = getTelegramSyncPassphrase();
+  if (passphrase.length < 8) {
+    showToast('동기화 암호를 8자 이상 입력하세요.', 'error');
+    return;
+  }
+  try {
+    updateTelegramCloudStatus('암호화된 설정을 불러오는 중...', 'info');
+    const record = await getTelegramCloudRecord();
+    if (!record?.value) {
+      updateTelegramCloudStatus('클라우드에 저장된 텔레그램 설정이 없습니다.', 'info');
+      showToast('클라우드에 저장된 텔레그램 설정이 없습니다.', 'info');
+      return;
+    }
+    const payload = await decryptTelegramCloudPayload(record.value, passphrase);
+    if ((appState.settings.telegramBotToken || appState.settings.telegramChatId) && !confirm('이 기기의 텔레그램 설정을 클라우드 설정으로 바꾸시겠습니까?')) {
+      updateTelegramCloudStatus('클라우드 설정 불러오기를 취소했습니다.', 'info');
+      return;
+    }
+    appState.settings.telegramBotToken = payload.telegramBotToken;
+    appState.settings.telegramChatId = payload.telegramChatId;
+    pinTelegramSettings(payload);
+    saveLocalState();
+    renderSettings();
+    updateTelegramCloudStatus(`클라우드 설정 불러오기 완료 · ${new Date(payload.savedAt).toLocaleString('ko-KR')}`, 'success');
+    showToast('클라우드 텔레그램 설정을 이 기기에 적용했습니다.', 'success');
+  } catch (error) {
+    console.error('텔레그램 클라우드 설정 불러오기 실패:', error);
+    updateTelegramCloudStatus('불러오기에 실패했습니다. 동기화 암호를 확인하세요.', 'error');
+    showToast('클라우드 설정을 불러오지 못했습니다. 동기화 암호를 확인하세요.', 'error');
+  }
 }
 
 function toggleTelegramTokenVisibility() {

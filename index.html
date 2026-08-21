@@ -387,15 +387,38 @@
         <div id="telegram-settings-status" class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400"></div>
         <div class="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
           <button onclick="saveTelegramSettings()" class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition">
-            텔레그램 설정 고정 저장
+            이 기기에 고정 저장
           </button>
           <button onclick="testTelegramNotification()" class="w-full sm:w-auto justify-center px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-lg text-xs transition flex items-center gap-1.5">
             <i data-lucide="send" class="w-3.5 h-3.5"></i>
             <span>시험 알림 즉시 발송</span>
           </button>
           <button onclick="clearTelegramSettings()" class="w-full sm:w-auto px-3 py-2 text-xs text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 transition">
-            고정 저장 해제
+            이 기기에서 삭제
           </button>
+        </div>
+
+        <div class="rounded-xl border border-blue-100 bg-blue-50/60 p-3.5 dark:border-blue-900/60 dark:bg-blue-950/20 space-y-3">
+          <div class="flex items-start gap-2">
+            <i data-lucide="cloud" class="w-4 h-4 shrink-0 mt-0.5 text-blue-600 dark:text-blue-400"></i>
+            <div>
+              <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200">다른 기기 동기화</h3>
+              <p class="mt-0.5 text-[11px] text-slate-600 dark:text-slate-400">설정값은 입력한 동기화 암호로 암호화한 뒤 클라우드에 보관됩니다. 새 기기에서는 같은 암호로 불러오세요.</p>
+            </div>
+          </div>
+          <div>
+            <label class="block font-semibold mb-1 text-xs text-slate-700 dark:text-slate-300">동기화 암호 <span class="font-normal text-slate-500">(8자 이상 · 복구 불가)</span></label>
+            <input type="password" id="setting-tg-sync-password" autocomplete="new-password" placeholder="다른 기기에서도 사용할 동기화 암호" class="w-full px-3 py-2 text-xs rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+          </div>
+          <div id="telegram-cloud-status" class="inline-flex max-w-full items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400"></div>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <button onclick="syncTelegramSettingsToCloud()" class="w-full sm:w-auto inline-flex justify-center items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition">
+              <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i><span>클라우드에 암호화 저장</span>
+            </button>
+            <button onclick="importTelegramSettingsFromCloud()" class="w-full sm:w-auto inline-flex justify-center items-center gap-1.5 px-4 py-2 bg-white hover:bg-blue-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 font-semibold rounded-lg text-xs border border-blue-200 dark:border-blue-800 transition">
+              <i data-lucide="cloud-download" class="w-3.5 h-3.5"></i><span>다른 기기 설정 불러오기</span>
+            </button>
+          </div>
         </div>
       </div>
 
