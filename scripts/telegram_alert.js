@@ -1,20 +1,25 @@
 /**
- * (주)코엔에프 자가품질검사 및 보건증 일일 텔레그램 알림 자동 발송 스크립트
+ * (주)코엔에프 자가품질검사 및 보건증 일일 텔레그램 알림 자동 발송 스크립트 (v2 - HTML Formatted)
  */
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
 // 1. 환경변수 확인
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
+const CHAT_ID = (process.env.TELEGRAM_CHAT_ID || '').trim();
+
+console.log('🔍 텔레그램 환경변수 점검:');
+console.log('- BOT_TOKEN 존재 여부:', !!BOT_TOKEN, BOT_TOKEN ? `(길이: ${BOT_TOKEN.length}, 시작: ${BOT_TOKEN.slice(0, 6)}...)` : '');
+console.log('- CHAT_ID 존재 여부:', !!CHAT_ID, CHAT_ID ? `(값: ${CHAT_ID})` : '');
 
 if (!BOT_TOKEN || !CHAT_ID) {
-  console.error('❌ TELEGRAM_BOT_TOKEN 또는 TELEGRAM_CHAT_ID 환경변수가 설정되지 않았습니다.');
+  console.error('❌ 오류: TELEGRAM_BOT_TOKEN 또는 TELEGRAM_CHAT_ID가 GitHub Secrets에 설정되지 않았습니다.');
+  console.error('GitHub 저장소 Settings -> Secrets and variables -> Actions에서 확인해 주세요.');
   process.exit(1);
 }
 
-// 2. 기본 데이터 로드 (data/schedule.json이 있으면 우선 로드, 없으면 기본값)
+// 2. 기본 데이터 로드
 let data = {
   types: [
     { id: 1, name: '액상차', intervalMonths: 2 },
@@ -45,17 +50,18 @@ if (fs.existsSync(customDataPath)) {
   try {
     const raw = fs.readFileSync(customDataPath, 'utf8');
     const parsed = JSON.parse(raw);
-    if (parsed.products && parsed.types) data = parsed;
-    console.log('✅ data/schedule.json 커스텀 데이터 로드 완료');
+    if (parsed.products && parsed.types) {
+      data = parsed;
+      console.log('✅ data/schedule.json 커스텀 데이터 로드 완료');
+    }
   } catch (e) {
-    console.warn('⚠️ data/schedule.json 파싱 실패, 기본 프리셋 사용');
+    console.warn('⚠️ data/schedule.json 로드 실패, 기본 데이터 사용');
   }
 }
 
-// 3. 날짜 및 D-Day 계산
+// 3. KST 기준 날짜 및 D-Day 계산
 function getTodayKstStr() {
   const d = new Date();
-  // UTC+9 계산
   const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
   const kst = new Date(utc + (9 * 3600000));
   const year = kst.getFullYear();
@@ -79,6 +85,11 @@ function calcDDay(targetDateStr, todayStr) {
   const today = new Date(todayStr).getTime();
   const target = new Date(targetDateStr).getTime();
   return Math.round((target - today) / (1000 * 60 * 60 * 24));
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 const todayStr = getTodayKstStr();
@@ -113,64 +124,64 @@ const warningHealthCerts = [];
   }
 });
 
-// 6. 텔레그램 메시지 조립
-let message = `🧪 *[(주)코엔에프 자가품질검사 일일 알림]*\n`;
-message += `📅 *기준일자:* ${todayStr}\n`;
+// 6. 텔레그램 HTML 메시지 조립
+let message = `🧪 <b>[(주)코엔에프 자가품질검사 일일 알림]</b>\n`;
+message += `📅 <b>기준일자:</b> ${todayStr}\n`;
 message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
 
 let hasAlert = false;
 
 if (overdueProducts.length > 0) {
   hasAlert = true;
-  message += `🚨 *[초과] 자가품질검사 기간 초과 (${overdueProducts.length}건)*\n`;
+  message += `🚨 <b>[초과] 자가품질검사 기간 초과 (${overdueProducts.length}건)</b>\n`;
   overdueProducts.forEach((p, idx) => {
-    message += `${idx + 1}. *${p.name}* [${p.typeName}]\n`;
-    message += `   └ ⚠️ *${Math.abs(p.dDay)}일 초과* (마감일: ${p.deadline})\n`;
+    message += `${idx + 1}. <b>${escapeHtml(p.name)}</b> [${escapeHtml(p.typeName)}]\n`;
+    message += `   └ ⚠️ <b>${Math.abs(p.dDay)}일 초과</b> (마감일: ${p.deadline})\n`;
   });
   message += `\n`;
 }
 
 if (urgentProducts.length > 0) {
   hasAlert = true;
-  message += `⚠️ *[임박] 14일 이내 마감 예정 (${urgentProducts.length}건)*\n`;
+  message += `⚠️ <b>[임박] 14일 이내 마감 예정 (${urgentProducts.length}건)</b>\n`;
   urgentProducts.forEach((p, idx) => {
-    message += `${idx + 1}. *${p.name}* [${p.typeName}]\n`;
-    message += `   └ ⏳ *D-${p.dDay}* (마감일: ${p.deadline})\n`;
+    message += `${idx + 1}. <b>${escapeHtml(p.name)}</b> [${escapeHtml(p.typeName)}]\n`;
+    message += `   └ ⏳ <b>D-${p.dDay}</b> (마감일: ${p.deadline})\n`;
   });
   message += `\n`;
 }
 
 if (warningHealthCerts.length > 0) {
   hasAlert = true;
-  message += `📋 *[보건증] 만료 임박/초과 (${warningHealthCerts.length}건)*\n`;
+  message += `📋 <b>[보건증] 만료 임박/초과 (${warningHealthCerts.length}건)</b>\n`;
   warningHealthCerts.forEach((c, idx) => {
     const statusText = c.dDay < 0 ? `🚨 ${Math.abs(c.dDay)}일 초과` : `⏳ D-${c.dDay}`;
-    message += `${idx + 1}. *${c.name}* (${c.dept}) : ${statusText} (~${c.expiresAt})\n`;
+    message += `${idx + 1}. <b>${escapeHtml(c.name)}</b> (${escapeHtml(c.dept)}) : ${statusText} (~${c.expiresAt})\n`;
   });
   message += `\n`;
 }
 
 if (!hasAlert) {
-  message += `✅ *오늘 기간 초과 또는 마감 임박 품목이 없습니다.*\n`;
+  message += `✅ <b>오늘 기간 초과 또는 마감 임박 품목이 없습니다.</b>\n`;
   message += `(모든 자가품질검사 및 보건증 일정이 정상 범위 내에 있습니다.)\n\n`;
 }
 
 message += `━━━━━━━━━━━━━━━━━━━━\n`;
-message += `👉 *스케줄러 웹앱 바로가기:*\nhttps://gohwansok-max.github.io/koenf-quality-scheduler/`;
+message += `👉 <b>스케줄러 웹앱 바로가기:</b>\nhttps://gohwansok-max.github.io/koenf-quality-scheduler/`;
 
-console.log('--- 전송할 메시지 미리보기 ---');
+console.log('--- 전송할 메시지 내용 ---');
 console.log(message);
-console.log('----------------------------');
+console.log('-------------------------');
 
-// 7. Telegram Bot API 전송
+// 7. Telegram Bot API 호출
 const postData = JSON.stringify({
   chat_id: CHAT_ID,
   text: message,
-  parse_mode: 'Markdown',
+  parse_mode: 'HTML',
   disable_web_page_preview: true
 });
 
-const req = https.request({
+const options = {
   hostname: 'api.telegram.org',
   port: 443,
   path: `/bot${BOT_TOKEN}/sendMessage`,
@@ -179,7 +190,9 @@ const req = https.request({
     'Content-Type': 'application/json',
     'Content-Length': Buffer.byteLength(postData)
   }
-}, (res) => {
+};
+
+const req = https.request(options, (res) => {
   let body = '';
   res.on('data', chunk => body += chunk);
   res.on('end', () => {
@@ -188,7 +201,19 @@ const req = https.request({
       if (response.ok) {
         console.log('🎉 텔레그램 메시지가 성공적으로 발송되었습니다!');
       } else {
-        console.error('❌ 텔레그램 API 오류:', response.description);
+        console.error('❌ 텔레그램 API 오류 응답:');
+        console.error(`- HTTP Status: ${res.statusCode}`);
+        console.error(`- Error Code: ${response.error_code}`);
+        console.error(`- Description: ${response.description}`);
+
+        if (response.error_code === 400 && response.description.includes('chat not found')) {
+          console.error('\n💡 해결 팁: CHAT_ID가 잘못되었거나, 봇이 해당 채팅방에 초대되지 않았습니다.');
+        } else if (response.error_code === 403) {
+          console.error('\n💡 해결 팁: 봇에게 먼저 말을 걸지 않았습니다! 텔레그램에서 해당 봇과의 채팅방을 열고 [Start / 시작] 버튼을 꼭 눌러주세요.');
+        } else if (response.error_code === 401 || response.error_code === 404) {
+          console.error('\n💡 해결 팁: TELEGRAM_BOT_TOKEN 값이 올바른지 다시 확인해 주세요.');
+        }
+
         process.exit(1);
       }
     } catch (err) {
