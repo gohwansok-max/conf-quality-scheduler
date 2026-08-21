@@ -499,7 +499,8 @@ function setDashboardFilter(filter) {
 
 function renderDashboard() {
   const tbody = document.getElementById('dashboard-table-body');
-  if (!tbody) return;
+  const mobileList = document.getElementById('dashboard-mobile-list');
+  if (!tbody || !mobileList) return;
 
   const searchKeyword = (document.getElementById('dash-search-input')?.value || '').trim().toLowerCase();
   const statusFilter = document.getElementById('dash-status-select')?.value || dashboardFilter || 'all';
@@ -550,8 +551,40 @@ function renderDashboard() {
 
   if (filtered.length === 0) {
     tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400">조건에 맞는 품목이 없습니다.</td></tr>`;
+    mobileList.innerHTML = `
+      <div class="mobile-empty-state">
+        <i data-lucide="clipboard-list" class="w-5 h-5"></i>
+        <span>조건에 맞는 품목이 없습니다.</span>
+      </div>
+    `;
+    lucide.createIcons();
     return;
   }
+
+  mobileList.innerHTML = filtered.map(p => `
+    <article class="mobile-schedule-card">
+      <div class="mobile-schedule-head">
+        ${renderStatusBadge(p.status, formatDDay(p.dDay))}
+        <div class="mobile-schedule-actions">
+          <button onclick="viewHistory(${p.id})" class="mobile-icon-button" aria-label="${escapeHtml(p.name)} 검사 이력" title="검사 이력">
+            <i data-lucide="history" class="w-4 h-4"></i>
+          </button>
+          <button onclick="openEditProductModal(${p.id})" class="mobile-icon-button" aria-label="${escapeHtml(p.name)} 수정" title="수정">
+            <i data-lucide="pencil" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+      <h3 class="mobile-schedule-title" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</h3>
+      <div class="mobile-schedule-type">${escapeHtml(p.typeName)} · ${p.intervalMonths}개월 주기</div>
+      <dl class="mobile-schedule-meta">
+        <div><dt>최근 제조일</dt><dd>${p.lastManufactureDate || '-'}</dd></div>
+        <div><dt>검사 마감일</dt><dd>${p.nextDeadline || '-'}</dd></div>
+      </dl>
+      <button onclick="openQuickRenewModal(${p.id})" class="mobile-renew-button">
+        <i data-lucide="check" class="w-4 h-4"></i><span>검사 완료 · 일정 갱신</span>
+      </button>
+    </article>
+  `).join('');
 
   tbody.innerHTML = filtered.map(p => `
     <tr class="table-row-hover transition">

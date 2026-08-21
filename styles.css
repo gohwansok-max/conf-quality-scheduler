@@ -265,3 +265,279 @@ tr.table-row-hover:hover {
     padding: 1rem;
   }
 }
+
+/* 모바일 대시보드 정돈: 표 대신 핵심 일정 카드로 빠르게 확인합니다. */
+.mobile-schedule-card,
+.mobile-empty-state {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  body {
+    background: linear-gradient(180deg, #f8fafc 0%, #f8fafc 55%, #f1f5f9 100%);
+  }
+
+  header > .max-w-7xl {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  header .h-16 {
+    height: 3.8rem;
+  }
+
+  #tab-nav-container {
+    gap: 0;
+    margin-left: -0.25rem;
+    margin-right: -0.25rem;
+    padding: 0 0.25rem;
+    mask-image: linear-gradient(to right, #000 92%, transparent 100%);
+  }
+
+  .nav-tab {
+    flex: 0 0 auto;
+    gap: 0.35rem;
+    padding: 0.72rem 0.82rem;
+    font-size: 0.72rem;
+  }
+
+  .nav-tab i {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  main {
+    padding-top: 0.9rem !important;
+    padding-bottom: 1.25rem !important;
+  }
+
+  .tab-view {
+    gap: 0.9rem;
+  }
+
+  .app-card {
+    border-color: #e5e7eb;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+
+  .app-card.p-5 {
+    padding: 1rem;
+  }
+
+  #view-dashboard .grid {
+    gap: 0.65rem;
+  }
+
+  #view-dashboard .app-card.p-4 {
+    min-height: 5.6rem;
+    padding: 0.8rem;
+    border-radius: 0.8rem;
+  }
+
+  #view-dashboard .app-card.p-4 .mt-2 {
+    margin-top: 0.35rem;
+  }
+
+  #dashboard-urgent-banner {
+    padding: 0.85rem;
+    border-radius: 0.8rem;
+  }
+
+  #dashboard-urgent-banner h3 {
+    font-size: 0.78rem;
+  }
+
+  #dashboard-urgent-banner p {
+    margin-top: 0.15rem;
+  }
+
+  #view-dashboard .app-card > .flex.flex-col.sm\:flex-row {
+    gap: 0.85rem;
+  }
+
+  #view-dashboard .relative.min-w-\[180px\] {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  #view-dashboard #dash-status-select {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  #view-dashboard .app-card .flex.flex-wrap.items-center.gap-2 {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    width: 100%;
+  }
+
+  #view-dashboard .app-card .flex.flex-wrap.items-center.gap-2 > .relative {
+    grid-column: 1 / -1;
+  }
+
+  #view-dashboard .app-card .flex.flex-wrap.items-center.gap-2 > button {
+    justify-content: center;
+  }
+
+  .mobile-schedule-card {
+    display: block;
+    overflow: hidden;
+    padding: 0.9rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.85rem;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+
+  .dark .mobile-schedule-card {
+    border-color: #334155;
+    background: #1e293b;
+  }
+
+  .mobile-schedule-head,
+  .mobile-schedule-actions {
+    display: flex;
+    align-items: center;
+  }
+
+  .mobile-schedule-head {
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .mobile-schedule-actions {
+    flex: 0 0 auto;
+    gap: 0.25rem;
+  }
+
+  .mobile-icon-button {
+    display: inline-flex;
+    width: 2rem;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.55rem;
+    color: #64748b;
+    background: #f8fafc;
+  }
+
+  .dark .mobile-icon-button {
+    color: #cbd5e1;
+    background: #334155;
+  }
+
+  .mobile-schedule-title {
+    overflow: hidden;
+    margin-top: 0.7rem;
+    color: #0f172a;
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dark .mobile-schedule-title {
+    color: #f8fafc;
+  }
+
+  .mobile-schedule-type {
+    overflow: hidden;
+    margin-top: 0.25rem;
+    color: #64748b;
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-schedule-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-top: 0.8rem;
+  }
+
+  .mobile-schedule-meta > div {
+    min-width: 0;
+    padding: 0.55rem 0.6rem;
+    border-radius: 0.6rem;
+    background: #f8fafc;
+  }
+
+  .dark .mobile-schedule-meta > div {
+    background: #334155;
+  }
+
+  .mobile-schedule-meta dt {
+    overflow: hidden;
+    color: #64748b;
+    font-size: 0.64rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-schedule-meta dd {
+    overflow: hidden;
+    margin-top: 0.15rem;
+    color: #1e293b;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dark .mobile-schedule-meta dd {
+    color: #e2e8f0;
+  }
+
+  .mobile-renew-button {
+    display: inline-flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    margin-top: 0.8rem;
+    padding: 0.62rem 0.75rem;
+    border: 1px solid #bbf7d0;
+    border-radius: 0.65rem;
+    color: #047857;
+    background: #ecfdf5;
+    font-size: 0.76rem;
+    font-weight: 700;
+  }
+
+  .dark .mobile-renew-button {
+    border-color: #065f46;
+    color: #a7f3d0;
+    background: rgba(6, 78, 59, 0.4);
+  }
+
+  .mobile-empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: 7rem;
+    border: 1px dashed #cbd5e1;
+    border-radius: 0.85rem;
+    color: #94a3b8;
+    background: #f8fafc;
+    font-size: 0.78rem;
+  }
+
+  .dark .mobile-empty-state {
+    border-color: #475569;
+    color: #94a3b8;
+    background: #1e293b;
+  }
+
+  #view-settings .rounded-xl.border.border-blue-100 {
+    padding: 0.85rem;
+    border-radius: 0.8rem;
+  }
+
+  footer {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+  }
+}
