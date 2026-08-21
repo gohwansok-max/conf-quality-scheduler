@@ -86,10 +86,10 @@ async function startServer() {
     try {
       const workbookBuffer = await createInspectionStatusExport(1);
       const date = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()).replaceAll("-", "");
-      const fileName = `koenf_quality_inspection_status_${date}.xlsx`;
+      const fileName = `conf_quality_inspection_status_${date}.xlsx`;
       res.status(200);
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", `attachment; filename=\"${fileName}\"; filename*=UTF-8''${encodeURIComponent(`코엔에프_제품별_자가품질검사_현황_${date}.xlsx`)}`);
+      res.setHeader("Content-Disposition", `attachment; filename=\"${fileName}\"; filename*=UTF-8''${encodeURIComponent(`컨프_제품별_자가품질검사_현황_${date}.xlsx`)}`);
       res.setHeader("Cache-Control", "no-store");
       res.end(workbookBuffer);
     } catch (error) {
@@ -100,10 +100,10 @@ async function startServer() {
     try {
       const workbookBuffer = await createManufactureHistoryExport(1);
       const date = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()).replaceAll("-", "");
-      const fileName = `koenf_manufacture_history_${date}.xlsx`;
+      const fileName = `conf_manufacture_history_${date}.xlsx`;
       res.status(200);
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(`코엔에프_제품별_제조일_변경이력_${date}.xlsx`)}`);
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(`컨프_제품별_제조일_변경이력_${date}.xlsx`)}`);
       res.setHeader("Cache-Control", "no-store");
       res.end(workbookBuffer);
     } catch (error) {

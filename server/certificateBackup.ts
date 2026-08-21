@@ -43,7 +43,7 @@ export async function streamCertificateBackup(res: Response, certificates: Certi
     .join("");
   res.status(200);
   res.setHeader("Content-Type", "application/zip");
-  res.setHeader("Content-Disposition", `attachment; filename="koenf_quality_certificates_${today}.zip"`);
+  res.setHeader("Content-Disposition", `attachment; filename="conf_quality_certificates_${today}.zip"`);
   res.setHeader("Cache-Control", "no-store");
 
   const archive = createZipArchive();

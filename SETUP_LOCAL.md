@@ -8,7 +8,7 @@
 
 ```bash
 git clone <repository-url>
-cd koenf-quality-scheduler
+cd conf-quality-scheduler
 corepack pnpm install
 ```
 
@@ -49,9 +49,9 @@ corepack pnpm dev
 ### 1. MySQL 데이터베이스 생성
 
 ```sql
-CREATE DATABASE koenf_quality CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'koenf_user'@'localhost' IDENTIFIED BY 'your_password';
-GRANT ALL PRIVILEGES ON koenf_quality.* TO 'koenf_user'@'localhost';
+CREATE DATABASE conf_quality CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'conf_user'@'localhost' IDENTIFIED BY 'your_password';
+GRANT ALL PRIVILEGES ON conf_quality.* TO 'conf_user'@'localhost';
 FLUSH PRIVILEGES;
 ```
 

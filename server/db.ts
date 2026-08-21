@@ -353,7 +353,7 @@ export async function updateCertificateNumberRule(ownerId: number, input: { pref
 
 function certificateNumberFor(rule: Awaited<ReturnType<typeof getCertificateNumberRule>>, issueDate: string, sequence: number) {
   const year = Number(issueDate.slice(0, 4));
-  const prefix = rule.prefix.trim().replace(/-+$/g, "") || "KOENF-QC";
+  const prefix = rule.prefix.trim().replace(/-+$/g, "") || "CONF-QC";
   return `${prefix}-${year}-${String(sequence).padStart(rule.sequenceDigits, "0")}`;
 }
 

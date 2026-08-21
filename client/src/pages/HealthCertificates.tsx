@@ -253,7 +253,7 @@ export default function HealthCertificates() {
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="mb-2 flex items-center gap-2 text-xs font-bold tracking-[0.18em] text-emerald-100">
-                  <UserRoundCheck className="h-4 w-4" /> KOENF HEALTH
+                  <UserRoundCheck className="h-4 w-4" /> CONF HEALTH
                   CERTIFICATE
                 </p>
                 <h1 className="text-3xl font-bold tracking-tight">

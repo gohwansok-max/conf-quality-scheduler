@@ -183,7 +183,7 @@ export default function Home() {
         <section className="rounded-2xl bg-[linear-gradient(115deg,oklch(0.25_0.06_195),oklch(0.4_0.1_190))] px-6 py-7 text-white shadow-lg shadow-teal-950/10 sm:px-8">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
             <div>
-              <div className="mb-2 flex items-center gap-2 text-xs font-bold tracking-[0.16em] text-teal-100"><ClipboardCheck className="h-4 w-4" /> KOENF QUALITY CONTROL</div>
+              <div className="mb-2 flex items-center gap-2 text-xs font-bold tracking-[0.16em] text-teal-100"><ClipboardCheck className="h-4 w-4" /> CONF QUALITY CONTROL</div>
               <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">자가품질검사 스케줄러</h1>
               <p className="mt-2 text-sm text-teal-50/90">최근 제조일을 기준으로 검사 마감일을 계산하고 텔레그램으로 알립니다.</p>
             </div>

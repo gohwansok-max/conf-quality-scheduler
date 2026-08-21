@@ -113,16 +113,16 @@ describe("qualityScheduler 제품별 알림·생산 상태", () => {
   });
 
   it("표준 성적서 발급번호 규칙을 저장하고 다음 번호를 조회한다", async () => {
-    const saveRule = vi.spyOn(db, "updateCertificateNumberRule").mockResolvedValue({ prefix: "KOENF-QC", sequenceDigits: 4 } as never);
-    const suggest = vi.spyOn(db, "suggestCertificateNumber").mockResolvedValue({ number: "KOENF-QC-2026-0001" } as never);
+    const saveRule = vi.spyOn(db, "updateCertificateNumberRule").mockResolvedValue({ prefix: "CONF-QC", sequenceDigits: 4 } as never);
+    const suggest = vi.spyOn(db, "suggestCertificateNumber").mockResolvedValue({ number: "CONF-QC-2026-0001" } as never);
     const caller = appRouter.createCaller(createContext());
 
-    await caller.qualityScheduler.updateCertificateNumberRule({ prefix: "KOENF-QC", sequenceDigits: 4 });
+    await caller.qualityScheduler.updateCertificateNumberRule({ prefix: "CONF-QC", sequenceDigits: 4 });
     const result = await caller.qualityScheduler.suggestCertificateNumber({ inspectionDate: "2026-08-20" });
 
-    expect(saveRule).toHaveBeenCalledWith(1, { prefix: "KOENF-QC", sequenceDigits: 4 });
+    expect(saveRule).toHaveBeenCalledWith(1, { prefix: "CONF-QC", sequenceDigits: 4 });
     expect(suggest).toHaveBeenCalledWith(1, "2026-08-20");
-    expect(result.number).toBe("KOENF-QC-2026-0001");
+    expect(result.number).toBe("CONF-QC-2026-0001");
   });
 
   it("담당자별 수신 그룹과 식품유형·제품 범위를 저장한다", async () => {

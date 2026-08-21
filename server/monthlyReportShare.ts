@@ -5,7 +5,7 @@ import { getMonthlyReport } from "./db";
 import { storageGetSignedUrl } from "./storage";
 
 const secret = new TextEncoder().encode(ENV.cookieSecret);
-const baseUrl = process.env.PUBLIC_APP_URL ?? "https://koenfsched-igvqjfhh.manus.space";
+const baseUrl = process.env.PUBLIC_APP_URL ?? "https://confsched-igvqjfhh.manus.space";
 
 export async function createMonthlyReportShareUrl(ownerId: number, reportMonth: string) {
   const token = await new SignJWT({ ownerId, reportMonth, kind: "monthly-inspection-report" }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("7d").sign(secret);

@@ -1,6 +1,6 @@
 # 팀원용 빠른 시작 가이드 🚀
 
-코엔에프 자가품질검사 스케줄러를 팀원과 함께 사용하기 위한 가이드입니다.
+컨프 자가품질검사 스케줄러를 팀원과 함께 사용하기 위한 가이드입니다.
 
 ## 📋 준비 사항
 
@@ -13,8 +13,8 @@
 ### 1단계: 코드 다운로드
 
 ```bash
-git clone https://github.com/gohwansok-max/koenf-quality-scheduler.git
-cd koenf-quality-scheduler
+git clone https://github.com/gohwansok-max/conf-quality-scheduler.git
+cd conf-quality-scheduler
 ```
 
 ### 2단계: 의존성 설치

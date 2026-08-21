@@ -6,7 +6,7 @@ import * as db from "./db";
 import { storageGetSignedUrl } from "./storage";
 
 const TOKEN_LIFETIME = "7d";
-const PUBLIC_APP_ORIGIN = (process.env.QUALITY_SCHEDULER_PUBLIC_URL || "https://koenfsched-igvqjfhh.manus.space").replace(/\/$/, "");
+const PUBLIC_APP_ORIGIN = (process.env.QUALITY_SCHEDULER_PUBLIC_URL || "https://confsched-igvqjfhh.manus.space").replace(/\/$/, "");
 
 function tokenKey() {
   if (!ENV.cookieSecret) throw new Error("공유 링크 보안 설정을 찾을 수 없습니다.");

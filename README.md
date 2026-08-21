@@ -1,4 +1,4 @@
-# 코엔에프 자가품질검사 스케줄러
+# 컨프 자가품질검사 스케줄러
 
 자가품질검사 일정, 제품별 제조일, 검사성적서, 보건증 만료일과 텔레그램 알림을 통합 관리하는 웹 애플리케이션입니다.
 
@@ -26,7 +26,7 @@
 
 ```bash
 git clone <repository-url>
-cd koenf-quality-scheduler
+cd conf-quality-scheduler
 corepack pnpm install
 ```
 

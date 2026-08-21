@@ -8,6 +8,6 @@ describe("성적서 텔레그램 공유 링크", () => {
     vi.stubEnv("JWT_SECRET", "test-share-secret-for-certificate-links");
     const url = await createCertificateShareUrl(11, 42);
     expect(url).toContain("/api/quality-certificates/share/42?token=");
-    expect(url).toContain("koenfsched-igvqjfhh.manus.space");
+    expect(url).toContain("confsched-igvqjfhh.manus.space");
   });
 });

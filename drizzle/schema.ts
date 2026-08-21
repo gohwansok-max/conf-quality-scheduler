@@ -107,7 +107,7 @@ export const qualityCertificateNumberRules = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     ownerId: int("ownerId").notNull(),
-    prefix: varchar("prefix", { length: 40 }).default("KOENF-QC").notNull(),
+    prefix: varchar("prefix", { length: 40 }).default("CONF-QC").notNull(),
     sequenceDigits: int("sequenceDigits").default(3).notNull(),
     lastIssuedYear: int("lastIssuedYear").default(0).notNull(),
     lastIssuedSequence: int("lastIssuedSequence").default(0).notNull(),
