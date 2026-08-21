@@ -48,13 +48,12 @@ async function startServer() {
   app.post("/api/scheduled/quality-notifications", runQualityNotificationCron);
   app.get("/api/quality-certificates/backup", async (req, res) => {
     try {
-      const user = await sdk.authenticateRequest(req);
       const rawIds = typeof req.query.ids === "string" ? req.query.ids : "all";
       const requestedIds = rawIds === "all"
         ? "all"
         : Array.from(new Set(rawIds.split(",").map(value => Number(value)).filter(Number.isInteger).filter(value => value > 0)));
       if (requestedIds !== "all" && requestedIds.length === 0) return res.status(400).json({ error: "백업할 성적서를 선택해 주세요." });
-      const certificates = await getCertificatesForBackup(user.id, requestedIds);
+      const certificates = await getCertificatesForBackup(1, requestedIds);
       await streamCertificateBackup(res, certificates);
     } catch (error) {
       if (!res.headersSent) res.status(400).json({ error: error instanceof Error ? error.message : "성적서 백업을 만들지 못했습니다." });
@@ -85,8 +84,7 @@ async function startServer() {
   });
   app.get("/api/quality-products/export.xlsx", async (req, res) => {
     try {
-      const user = await sdk.authenticateRequest(req);
-      const workbookBuffer = await createInspectionStatusExport(user.id);
+      const workbookBuffer = await createInspectionStatusExport(1);
       const date = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()).replaceAll("-", "");
       const fileName = `koenf_quality_inspection_status_${date}.xlsx`;
       res.status(200);
@@ -100,8 +98,7 @@ async function startServer() {
   });
   app.get("/api/product-manufacture-records/export.xlsx", async (req, res) => {
     try {
-      const user = await sdk.authenticateRequest(req);
-      const workbookBuffer = await createManufactureHistoryExport(user.id);
+      const workbookBuffer = await createManufactureHistoryExport(1);
       const date = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()).replaceAll("-", "");
       const fileName = `koenf_manufacture_history_${date}.xlsx`;
       res.status(200);
@@ -115,9 +112,8 @@ async function startServer() {
   });
   app.get("/api/quality-reports/monthly", async (req, res) => {
     try {
-      const user = await sdk.authenticateRequest(req);
       const month = typeof req.query.month === "string" && /^\d{4}-\d{2}$/.test(req.query.month) ? req.query.month : new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit" }).format(new Date());
-      const { report, signedUrl } = await getMonthlyReportDownloadUrl(user.id, month);
+      const { report, signedUrl } = await getMonthlyReportDownloadUrl(1, month);
       const file = await fetch(signedUrl);
       if (!file.ok) throw new Error("월간 보고서 파일을 읽지 못했습니다.");
       res.status(200).setHeader("Content-Type", "application/pdf");
