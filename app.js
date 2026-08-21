@@ -17,6 +17,8 @@ try {
 
 // ==================== 2. State & Fallback Data ====================
 const STORAGE_KEY = 'koenf_quality_data_v3';
+// 텔레그램 인증값은 일반 업무 데이터와 분리해 백업·초기화 후에도 현재 브라우저에 유지합니다.
+const TELEGRAM_SETTINGS_KEY = 'koenf_telegram_settings_v1';
 
 const DEFAULT_DATA = {
   types: [
@@ -60,6 +62,64 @@ const DEFAULT_DATA = {
 
 let appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
 let isCloudConnected = false;
+
+function getPinnedTelegramSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TELEGRAM_SETTINGS_KEY) || '{}');
+    return {
+      telegramBotToken: typeof saved.telegramBotToken === 'string' ? saved.telegramBotToken.trim() : '',
+      telegramChatId: typeof saved.telegramChatId === 'string' ? saved.telegramChatId.trim() : ''
+    };
+  } catch (error) {
+    console.warn('저장된 텔레그램 설정을 읽지 못했습니다.', error);
+    return { telegramBotToken: '', telegramChatId: '' };
+  }
+}
+
+function pinTelegramSettings({ telegramBotToken, telegramChatId }) {
+  const pinned = {
+    telegramBotToken: String(telegramBotToken || '').trim(),
+    telegramChatId: String(telegramChatId || '').trim(),
+    savedAt: new Date().toISOString()
+  };
+  localStorage.setItem(TELEGRAM_SETTINGS_KEY, JSON.stringify(pinned));
+  return pinned;
+}
+
+function applyPinnedTelegramSettings() {
+  appState.settings = { ...DEFAULT_DATA.settings, ...(appState.settings || {}) };
+  const pinned = getPinnedTelegramSettings();
+  if (pinned.telegramBotToken) appState.settings.telegramBotToken = pinned.telegramBotToken;
+  if (pinned.telegramChatId) appState.settings.telegramChatId = pinned.telegramChatId;
+  return pinned;
+}
+
+function migrateTelegramSettingsToPinned() {
+  const pinned = getPinnedTelegramSettings();
+  const current = appState.settings || {};
+  if ((!pinned.telegramBotToken && current.telegramBotToken) || (!pinned.telegramChatId && current.telegramChatId)) {
+    pinTelegramSettings({
+      telegramBotToken: pinned.telegramBotToken || current.telegramBotToken,
+      telegramChatId: pinned.telegramChatId || current.telegramChatId
+    });
+  }
+  return applyPinnedTelegramSettings();
+}
+
+function updateTelegramSettingsStatus() {
+  const status = document.getElementById('telegram-settings-status');
+  if (!status) return;
+  const hasToken = Boolean(appState.settings?.telegramBotToken);
+  const hasChatId = Boolean(appState.settings?.telegramChatId);
+  if (hasToken && hasChatId) {
+    status.className = 'inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300';
+    status.innerHTML = '<i data-lucide="lock-keyhole" class="w-3.5 h-3.5"></i><span>고정 저장됨 · 이 브라우저에서 계속 유지됩니다</span>';
+  } else {
+    status.className = 'inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400';
+    status.innerHTML = '<i data-lucide="circle-alert" class="w-3.5 h-3.5"></i><span>Bot Token과 Chat ID를 모두 입력해 저장하세요</span>';
+  }
+  lucide.createIcons();
+}
 
 function updateCloudBadge(connected) {
   isCloudConnected = connected;
@@ -160,6 +220,7 @@ async function loadCloudState(showToastNotice = false) {
       });
     }
 
+    migrateTelegramSettingsToPinned();
     saveLocalState();
     updateCloudBadge(true);
     if (showToastNotice) showToast('클라우드 실시간 데이터가 동기화되었습니다.', 'success');
@@ -193,17 +254,25 @@ function loadLocalState() {
       if (!appState.types || !appState.products) appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
     } else {
       appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
-      saveLocalState();
     }
   } catch (e) {
     appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
   }
+  migrateTelegramSettingsToPinned();
+  saveLocalState();
   updateCloudBadge(false);
   renderCurrentTab();
 }
 
 function saveLocalState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+  // 인증값은 별도 키에만 보관하여 일반 JSON 백업·복원·초기화 과정에서 지워지지 않게 합니다.
+  const localSnapshot = JSON.parse(JSON.stringify(appState));
+  localSnapshot.settings = {
+    ...(localSnapshot.settings || {}),
+    telegramBotToken: '',
+    telegramChatId: ''
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(localSnapshot));
 }
 
 // ==================== 3. Date & Calculation Engine ====================
@@ -579,6 +648,7 @@ function renderSettings() {
   document.getElementById('setting-tg-chatid').value = appState.settings.telegramChatId || '';
   document.getElementById('setting-warning-days').value = appState.settings.warningDays || 14;
   document.getElementById('setting-health-warning-days').value = appState.settings.healthWarningDays || 30;
+  updateTelegramSettingsStatus();
 }
 
 // ==================== 5. Modals & Cloud Mutations ====================
@@ -1332,7 +1402,14 @@ function handleExcelUpload(e) {
 }
 
 function exportJSONBackup() {
-  const dataStr = JSON.stringify(appState, null, 2);
+  // Bot Token과 Chat ID는 백업 파일에 포함하지 않습니다. 현재 브라우저의 고정 저장값은 유지됩니다.
+  const backupData = JSON.parse(JSON.stringify(appState));
+  backupData.settings = {
+    ...(backupData.settings || {}),
+    telegramBotToken: '',
+    telegramChatId: ''
+  };
+  const dataStr = JSON.stringify(backupData, null, 2);
   const blob = new Blob([dataStr], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1354,8 +1431,9 @@ function handleRestoreJSON(e) {
       if (!parsed.products || !parsed.types) throw new Error('유효하지 않은 백업 파일 형식');
       if (!confirm('백업 데이터로 복원하시겠습니까? 현재 데이터가 대체됩니다.')) return;
       appState = parsed;
+      migrateTelegramSettingsToPinned();
       saveLocalState();
-      showToast('백업 데이터가 성공적으로 복원되었습니다.', 'success');
+      showToast('백업 데이터가 성공적으로 복원되었습니다. 텔레그램 설정은 그대로 유지됩니다.', 'success');
       switchTab('dashboard');
     } catch (err) {
       showToast('백업 파일을 복원하지 못했습니다: 올바른 JSON 파일이 아닙니다.', 'error');
@@ -1368,16 +1446,18 @@ function handleRestoreJSON(e) {
 function loadSampleData(confirmUser) {
   if (confirmUser && !confirm('기본 샘플 데이터를 불러오시겠습니까?')) return;
   appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  applyPinnedTelegramSettings();
   saveLocalState();
-  showToast('기본 샘플 데이터가 로드되었습니다.', 'success');
+  showToast('기본 샘플 데이터가 로드되었습니다. 텔레그램 설정은 유지됩니다.', 'success');
   switchTab('dashboard');
 }
 
 function resetAllData() {
   if (!confirm('경고: 모든 제품, 검사 이력, 보건증 데이터가 삭제됩니다. 계속하시겠습니까?')) return;
-  appState = { types: [], products: [], history: [], healthCerts: [], certificates: [], settings: DEFAULT_DATA.settings };
+  appState = { types: [], products: [], history: [], healthCerts: [], certificates: [], settings: { ...DEFAULT_DATA.settings } };
+  applyPinnedTelegramSettings();
   saveLocalState();
-  showToast('모든 데이터가 초기화되었습니다.', 'info');
+  showToast('업무 데이터가 초기화되었습니다. 텔레그램 설정은 유지됩니다.', 'info');
   switchTab('dashboard');
 }
 
@@ -1385,10 +1465,37 @@ function resetAllData() {
 function saveTelegramSettings() {
   const token = document.getElementById('setting-tg-token').value.trim();
   const chatId = document.getElementById('setting-tg-chatid').value.trim();
-  appState.settings.telegramBotToken = token;
-  appState.settings.telegramChatId = chatId;
+  if (!token || !chatId) {
+    showToast('Bot Token과 Chat ID를 모두 입력하세요.', 'error');
+    return;
+  }
+  const pinned = pinTelegramSettings({ telegramBotToken: token, telegramChatId: chatId });
+  appState.settings.telegramBotToken = pinned.telegramBotToken;
+  appState.settings.telegramChatId = pinned.telegramChatId;
   saveLocalState();
-  showToast('텔레그램 알림 설정이 저장되었습니다.', 'success');
+  updateTelegramSettingsStatus();
+  showToast('텔레그램 설정이 고정 저장되었습니다. 새로고침·업무 데이터 초기화 후에도 유지됩니다.', 'success');
+}
+
+function clearTelegramSettings() {
+  if (!confirm('저장된 Telegram Bot Token과 Chat ID를 이 브라우저에서 삭제하시겠습니까?')) return;
+  localStorage.removeItem(TELEGRAM_SETTINGS_KEY);
+  appState.settings.telegramBotToken = '';
+  appState.settings.telegramChatId = '';
+  saveLocalState();
+  renderSettings();
+  showToast('고정 저장된 텔레그램 설정을 삭제했습니다.', 'info');
+}
+
+function toggleTelegramTokenVisibility() {
+  const input = document.getElementById('setting-tg-token');
+  const button = document.getElementById('toggle-tg-token-visibility');
+  if (!input || !button) return;
+  const isHidden = input.type === 'password';
+  input.type = isHidden ? 'text' : 'password';
+  button.setAttribute('aria-label', isHidden ? 'Bot Token 숨기기' : 'Bot Token 보기');
+  button.innerHTML = `<i data-lucide="${isHidden ? 'eye-off' : 'eye'}" class="w-4 h-4"></i>`;
+  lucide.createIcons();
 }
 
 function saveNotificationDays() {

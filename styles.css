@@ -192,3 +192,76 @@ tr.table-row-hover:hover {
     color: black !important;
   }
 }
+
+/* 모바일: 글자는 한 줄로 유지하고, 넓은 표는 가로 스크롤로 확인합니다. */
+@media (max-width: 639px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  #tab-nav-container {
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #tab-nav-container::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app-card {
+    border-radius: 0.65rem;
+  }
+
+  .app-card > div > p,
+  .app-card > p {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    min-width: max-content;
+  }
+
+  th,
+  td,
+  .badge-overdue,
+  .badge-urgent,
+  .badge-safe,
+  .badge-stopped,
+  .badge-paused {
+    white-space: nowrap;
+  }
+
+  #telegram-settings-status {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  #telegram-settings-status span,
+  footer p {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .modal-content {
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 374px) {
+  #theme-toggle {
+    padding: 0.4rem;
+  }
+
+  .app-card {
+    padding: 1rem;
+  }
+}
