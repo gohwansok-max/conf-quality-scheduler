@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="ko" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>(?)???? ?????? ????</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' }
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75' fill='%232563eb'>??</text></svg>">
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 shadow-sm no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+            <i data-lucide="flask-conical" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="font-bold text-lg text-slate-900 dark:text-white tracking-tight">???? ?????? ????</h1>
+              <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">v2.5 ??</span>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">????? ???? ? ??? ?? ?? ???</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-3">
+          <button id="btn-quick-excel" onclick="exportScheduleExcel()" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 transition">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+            <span>?? ????</span>
+          </button>
+          <button id="btn-quick-print" onclick="triggerPrint()" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            <span>?? / PDF</span>
+          </button>
+          <button id="theme-toggle" onclick="toggleDarkMode()" class="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition" title="??/??? ??">
+            <i data-lucide="moon" id="theme-icon" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <nav id="tab-nav-container" class="flex gap-1 sm:gap-2 overflow-x-auto border-t border-slate-100 dark:border-slate-800/80 -mb-px text-sm">
+        <button class="nav-tab active flex items-center gap-2 py-3 px-3.5 border-b-2 font-medium transition whitespace-nowrap" data-tab="dashboard" onclick="switchTab('dashboard')">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+          <span>????</span>
+        </button>
+        <button class="nav-tab flex items-center gap-2 py-3 px-3.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium transition whitespace-nowrap" data-tab="products" onclick="switchTab('products')">
+          <i data-lucide="boxes" class="w-4 h-4"></i>
+          <span>?? & ?? ??</span>
+        </button>
+        <button class="nav-tab flex items-center gap-2 py-3 px-3.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium transition whitespace-nowrap" data-tab="types" onclick="switchTab('types')">
+          <i data-lucide="tags" class="w-4 h-4"></i>
+          <span>???? ??</span>
+        </button>
+        <button class="nav-tab flex items-center gap-2 py-3 px-3.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium transition whitespace-nowrap" data-tab="health" onclick="switchTab('health')">
+          <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+          <span>??? ??</span>
+        </button>
+        <button class="nav-tab flex items-center gap-2 py-3 px-3.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium transition whitespace-nowrap" data-tab="certs" onclick="switchTab('certs')">
+          <i data-lucide="award" class="w-4 h-4"></i>
+          <span>??? ??</span>
+        </button>
+        <button class="nav-tab flex items-center gap-2 py-3 px-3.5 border-b-2 border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium transition whitespace-nowrap" data-tab="settings" onclick="switchTab('settings')">
+          <i data-lucide="settings-2" class="w-4 h-4"></i>
+          <span>?? & ??</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- 1. DASHBOARD VIEW -->
+    <section id="view-dashboard" class="tab-view space-y-6">
+      <div id="dashboard-urgent-banner" class="hidden rounded-xl p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200">
+        <div class="flex items-start gap-3">
+          <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600 shrink-0 mt-0.5"></i>
+          <div class="flex-1">
+            <h3 class="font-semibold text-sm">?? ?? ?? ??? ????!</h3>
+            <p id="urgent-banner-text" class="text-xs text-red-700 dark:text-red-300 mt-0.5"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+        <div class="app-card p-4 flex flex-col justify-between cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 transition" onclick="setDashboardFilter('all')">
+          <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
+            <span>?? ?? ??</span>
+            <i data-lucide="boxes" class="w-4 h-4 text-blue-500"></i>
+          </div>
+          <div class="mt-2 flex items-baseline gap-1">
+            <span id="kpi-total" class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">0</span>
+            <span class="text-xs text-slate-500">?</span>
+          </div>
+        </div>
+        <div class="app-card p-4 flex flex-col justify-between cursor-pointer hover:border-red-300 dark:hover:border-red-700 transition border-l-4 border-l-red-500" onclick="setDashboardFilter('overdue')">
+          <div class="flex items-center justify-between text-red-600 dark:text-red-400 text-xs font-medium">
+            <span>?? ?? (??)</span>
+            <i data-lucide="alert-octagon" class="w-4 h-4 text-red-500"></i>
+          </div>
+          <div class="mt-2 flex items-baseline gap-1">
+            <span id="kpi-overdue" class="text-2xl sm:text-3xl font-bold text-red-600 dark:text-red-400">0</span>
+            <span class="text-xs text-red-500">?</span>
+          </div>
+        </div>
+        <div class="app-card p-4 flex flex-col justify-between cursor-pointer hover:border-amber-300 dark:hover:border-amber-700 transition border-l-4 border-l-amber-500" onclick="setDashboardFilter('urgent')">
+          <div class="flex items-center justify-between text-amber-600 dark:text-amber-400 text-xs font-medium">
+            <span>?? ?? (??)</span>
+            <i data-lucide="bell-ring" class="w-4 h-4 text-amber-500"></i>
+          </div>
+          <div class="mt-2 flex items-baseline gap-1">
+            <span id="kpi-urgent" class="text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">0</span>
+            <span class="text-xs text-amber-500">?</span>
+          </div>
+        </div>
+        <div class="app-card p-4 flex flex-col justify-between cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-700 transition border-l-4 border-l-emerald-500" onclick="setDashboardFilter('safe')">
+          <div class="flex items-center justify-between text-emerald-600 dark:text-emerald-400 text-xs font-medium">
+            <span>?? (??)</span>
+            <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500"></i>
+          </div>
+          <div class="mt-2 flex items-baseline gap-1">
+            <span id="kpi-safe" class="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">0</span>
+            <span class="text-xs text-emerald-500">?</span>
+          </div>
+        </div>
+        <div class="app-card p-4 flex flex-col justify-between cursor-pointer hover:border-purple-300 dark:hover:border-purple-700 transition border-l-4 border-l-purple-500 col-span-2 sm:col-span-1" onclick="switchTab('health')">
+          <div class="flex items-center justify-between text-purple-600 dark:text-purple-400 text-xs font-medium">
+            <span>??? ??</span>
+            <i data-lucide="user-check" class="w-4 h-4 text-purple-500"></i>
+          </div>
+          <div class="mt-2 flex items-baseline gap-1">
+            <span id="kpi-health-warning" class="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">0</span>
+            <span class="text-xs text-purple-500">?</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Schedule Table Card -->
+      <div class="app-card p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span>?????? ??? ??</span>
+              <span id="dash-filtered-count" class="text-xs font-normal text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">0?</span>
+            </h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">?? ??? ?? ?? ?? ??? ? D-Day ??? ?????.</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="relative min-w-[180px]">
+              <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+              <input type="text" id="dash-search-input" oninput="renderDashboard()" placeholder="???/?? ??..." class="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <select id="dash-status-select" onchange="renderDashboard()" class="py-1.5 px-3 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="all">?? ??</option>
+              <option value="overdue">?? ?? ??</option>
+              <option value="urgent">?? ?? ??</option>
+              <option value="safe">? ?? ??</option>
+              <option value="stopped">?? ?? ??</option>
+              <option value="paused">?? ?? ??</option>
+            </select>
+            <button onclick="openAddProductModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span>?? ??</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+          <table class="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+            <thead class="bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800 uppercase tracking-wider">
+              <tr>
+                <th class="py-3 px-4">?? / D-Day</th>
+                <th class="py-3 px-4">???</th>
+                <th class="py-3 px-4">????</th>
+                <th class="py-3 px-4">????</th>
+                <th class="py-3 px-4">?? ??(??)?</th>
+                <th class="py-3 px-4">?? ???</th>
+                <th class="py-3 px-4 text-center">?? ?? ??</th>
+                <th class="py-3 px-4 text-right action-column">??</th>
+              </tr>
+            </thead>
+            <tbody id="dashboard-table-body" class="divide-y divide-slate-200 dark:divide-slate-800">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. PRODUCTS MANAGEMENT VIEW -->
+    <section id="view-products" class="tab-view hidden space-y-6">
+      <div class="app-card p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span>??? ???? ? ?? ??</span>
+            </h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">?? ??? ??????? ?? ?? ? ?? ??? ?????.</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="document.getElementById('excel-import-file').click()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition">
+              <i data-lucide="upload" class="w-4 h-4"></i>
+              <span>?? ?? ???</span>
+            </button>
+            <input type="file" id="excel-import-file" onchange="handleExcelUpload(event)" accept=".xlsx, .xls, .csv" class="hidden">
+            <button onclick="openAddProductModal()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span>? ?? ??</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+          <table class="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+            <thead class="bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800 uppercase tracking-wider">
+              <tr>
+                <th class="py-3 px-4">???</th>
+                <th class="py-3 px-4">????</th>
+                <th class="py-3 px-4">??</th>
+                <th class="py-3 px-4">?????</th>
+                <th class="py-3 px-4">?????</th>
+                <th class="py-3 px-4">????</th>
+                <th class="py-3 px-4">????</th>
+                <th class="py-3 px-4">??</th>
+                <th class="py-3 px-4 text-right action-column">??</th>
+              </tr>
+            </thead>
+            <tbody id="products-table-body" class="divide-y divide-slate-200 dark:divide-slate-800">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. FOOD TYPES VIEW -->
+    <section id="view-types" class="tab-view hidden space-y-6">
+      <div class="app-card p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span>???? ? ?? ???? ??</span>
+            </h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">???? ? ?? ??? ?? ??? ?????? ??(??)? ?? ????? ?????.</p>
+          </div>
+          <button onclick="openAddTypeModal()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>? ???? ??</span>
+          </button>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+          <table class="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+            <thead class="bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800 uppercase tracking-wider">
+              <tr>
+                <th class="py-3 px-4">?????</th>
+                <th class="py-3 px-4">?? ?? ??</th>
+                <th class="py-3 px-4">?? ?? ????</th>
+                <th class="py-3 px-4">??? ?? ?</th>
+                <th class="py-3 px-4 text-right action-column">??</th>
+              </tr>
+            </thead>
+            <tbody id="types-table-body" class="divide-y divide-slate-200 dark:divide-slate-800">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. HEALTH CERTIFICATES VIEW -->
+    <section id="view-health" class="tab-view hidden space-y-6">
+      <div class="app-card p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span>?? ??? (???????) ??</span>
+            </h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">???? ??? ??? ????(1?)? ?? ??(D-30) ?? ? ??? ?????.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="openAddHealthCertModal()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span>??? ??</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+          <table class="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+            <thead class="bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800 uppercase tracking-wider">
+              <tr>
+                <th class="py-3 px-4">?? / D-Day</th>
+                <th class="py-3 px-4">????</th>
+                <th class="py-3 px-4">??/??</th>
+                <th class="py-3 px-4">????</th>
+                <th class="py-3 px-4">????</th>
+                <th class="py-3 px-4">??? ??(PDF)</th>
+                <th class="py-3 px-4">??</th>
+                <th class="py-3 px-4 text-right action-column">??</th>
+              </tr>
+            </thead>
+            <tbody id="health-table-body" class="divide-y divide-slate-200 dark:divide-slate-800">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. QUALITY CERTIFICATES VIEW -->
+    <section id="view-certs" class="tab-view hidden space-y-6">
+      <div class="app-card p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span>?? ??? ???</span>
+            </h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">?????? ??? ??(PDF/???)? ??? ??? ?? ???? ?????.</p>
+          </div>
+          <button onclick="openUploadCertModal()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition">
+            <i data-lucide="upload" class="w-4 h-4"></i>
+            <span>??? ??</span>
+          </button>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+          <table class="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+            <thead class="bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800 uppercase tracking-wider">
+              <tr>
+                <th class="py-3 px-4">??? ??</th>
+                <th class="py-3 px-4">??? / ????</th>
+                <th class="py-3 px-4">????</th>
+                <th class="py-3 px-4">??? / ??</th>
+                <th class="py-3 px-4">????</th>
+                <th class="py-3 px-4 text-right action-column">???? / ??</th>
+              </tr>
+            </thead>
+            <tbody id="certs-table-body" class="divide-y divide-slate-200 dark:divide-slate-800">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. SETTINGS & BACKUP VIEW -->
+    <section id="view-settings" class="tab-view hidden space-y-6">
+      <div class="app-card p-5 space-y-4">
+        <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <i data-lucide="send" class="w-5 h-5 text-blue-500"></i>
+          <span>???? ?? ??</span>
+        </h2>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Telegram Bot Token ? Chat ID? ???? ?????? ?? ?? ?? ??? ??? ? ????.</p>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Telegram Bot Token</label>
+            <input type="text" id="setting-tg-token" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+          </div>
+          <div>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Telegram Chat ID</label>
+            <input type="text" id="setting-tg-chatid" placeholder="-1001234567890 ?? @channel_name" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+          </div>
+        </div>
+        <div class="flex items-center gap-3 pt-2">
+          <button onclick="saveTelegramSettings()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition">
+            ???? ?? ??
+          </button>
+          <button onclick="testTelegramNotification()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-lg text-xs transition flex items-center gap-1.5">
+            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+            <span>?? ?? ?? ??</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="app-card p-5 space-y-4">
+        <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <i data-lucide="bell" class="w-5 h-5 text-amber-500"></i>
+          <span>?? ?? ??? ??</span>
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?????? ?? ?? ?? (?? 14? ?)</label>
+            <input type="number" id="setting-warning-days" value="14" min="1" max="90" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+          </div>
+          <div>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??? ?? ?? ?? (?? 30? ?)</label>
+            <input type="number" id="setting-health-warning-days" value="30" min="1" max="90" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+          </div>
+        </div>
+        <button onclick="saveNotificationDays()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition">
+          ?? ??? ??
+        </button>
+      </div>
+
+      <div class="app-card p-5 space-y-4">
+        <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <i data-lucide="database" class="w-5 h-5 text-emerald-500"></i>
+          <span>??? ?? & ??</span>
+        </h2>
+        <p class="text-xs text-slate-500 dark:text-slate-400">?? ??, ????, ??? ???? ??? ????? ??? ? ????.</p>
+
+        <div class="flex flex-wrap items-center gap-3 pt-1">
+          <button onclick="exportJSONBackup()" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span>?? ?? ???? (.json)</span>
+          </button>
+          
+          <button onclick="document.getElementById('restore-json-file').click()" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition">
+            <i data-lucide="upload" class="w-4 h-4"></i>
+            <span>?? ?? ?? (.json)</span>
+          </button>
+          <input type="file" id="restore-json-file" onchange="handleRestoreJSON(event)" accept=".json" class="hidden">
+
+          <button onclick="loadSampleData(true)" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            <span>?? ?? ??? ????</span>
+          </button>
+
+          <button onclick="resetAllData()" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800 transition">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+            <span>??? ?? ???</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="mt-auto py-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400 no-print">
+    <div class="max-w-7xl mx-auto px-4">
+      <p>? 2026 (?)???? ?????? ??? ? ???? ?? ???? ?? ??? ?? ??</p>
+    </div>
+  </footer>
+
+  <!-- 1. Add / Edit Product Modal -->
+  <div id="modal-product" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden">
+    <div class="modal-content bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <h3 id="modal-product-title" class="font-bold text-slate-900 dark:text-white text-base">?? ??</h3>
+        <button onclick="closeModal('modal-product')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="form-product" onsubmit="handleSaveProduct(event)" class="mt-4 space-y-4 text-xs">
+        <input type="hidden" id="prod-id">
+        <div>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??? *</label>
+          <input type="text" id="prod-name" required placeholder="?: ???? ??? ????" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">???? *</label>
+            <select id="prod-type-id" required onchange="handleProductTypeChange()" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ?? (??) *</label>
+            <input type="number" id="prod-interval" required min="1" max="24" value="2" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ??(??)?? *</label>
+          <input type="date" id="prod-last-date" required class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? / ??</label>
+          <textarea id="prod-memo" rows="2" placeholder="?? ??, ???? ?..." class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-product')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">??</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm">??</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. Quick Complete Inspection Modal -->
+  <div id="modal-quick-renew" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden">
+    <div class="modal-content bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <h3 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+          <i data-lucide="check-circle" class="w-5 h-5 text-emerald-500"></i>
+          <span>?? ?? / ??? ??</span>
+        </h3>
+        <button onclick="closeModal('modal-quick-renew')" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="form-quick-renew" onsubmit="handleQuickRenew(event)" class="mt-4 space-y-4 text-xs">
+        <input type="hidden" id="renew-prod-id">
+        <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+          <div class="font-semibold text-slate-900 dark:text-white text-sm" id="renew-prod-name"></div>
+          <div class="text-xs text-slate-500 mt-1" id="renew-prod-info"></div>
+        </div>
+        <div>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">? ???(?? ????) *</label>
+          <input type="date" id="renew-date" required class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+        </div>
+        <div>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ?? ??</label>
+          <input type="text" id="renew-memo" placeholder="?: 2026-08? ???? ?? (??)" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-quick-renew')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 font-medium">??</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">?? ??</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. Add / Edit Type Modal -->
+  <div id="modal-type" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden">
+    <div class="modal-content bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <h3 id="modal-type-title" class="font-bold text-slate-900 dark:text-white text-base">???? ??</h3>
+        <button onclick="closeModal('modal-type')" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="form-type" onsubmit="handleSaveType(event)" class="mt-4 space-y-4 text-xs">
+        <input type="hidden" id="type-id">
+        <div>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">????? *</label>
+          <input type="text" id="type-name" required placeholder="?: ???, ?????, ?????..." class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+        </div>
+        <div>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ?? ?? (??) *</label>
+          <input type="number" id="type-interval" required min="1" max="24" value="2" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+        </div>
+        <div>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ?? ????</label>
+          <textarea id="type-items" rows="3" placeholder="?: ???, ????, ????, ???..." class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-type')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 font-medium">??</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">??</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. Add / Edit Health Cert Modal -->
+  <div id="modal-health" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden">
+    <div class="modal-content bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <h3 id="modal-health-title" class="font-bold text-slate-900 dark:text-white text-base">??? ??</h3>
+        <button onclick="closeModal('modal-health')" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="form-health" onsubmit="handleSaveHealthCert(event)" class="mt-4 space-y-4 text-xs">
+        <input type="hidden" id="health-id">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??? ?? *</label>
+            <input type="text" id="health-name" required placeholder="???" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+          </div>
+          <div>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ?? / ??</label>
+            <input type="text" id="health-dept" placeholder="?????, ??1?..." class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??/???? *</label>
+            <input type="date" id="health-issued" required onchange="handleHealthIssuedChange()" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+          </div>
+          <div>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">???? (1? ? ??) *</label>
+            <input type="date" id="health-expires" required class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??? ?? ?? (PDF / ??? ??)</label>
+          <input type="file" id="health-file" accept=".pdf, image/*" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+          <p class="text-[11px] text-slate-400 mt-0.5">??? ??? ???? ??? ?? ???? ??? ??/???? ?????.</p>
+        </div>
+        <div>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??</label>
+          <textarea id="health-memo" rows="2" placeholder="?? ??, ?? ???? ?..." class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-health')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 font-medium">??</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">??</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 5. Upload Certificate Modal -->
+  <div id="modal-upload-cert" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden">
+    <div class="modal-content bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <h3 class="font-bold text-slate-900 dark:text-white text-base">?? ??? ??</h3>
+        <button onclick="closeModal('modal-upload-cert')" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="form-upload-cert" onsubmit="handleSaveCert(event)" class="mt-4 space-y-4 text-xs">
+        <div>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??? ?? (?? ?? ?? ??)</label>
+          <input type="text" id="cert-number" placeholder="?: CONF-QC-2026-001" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ?? ??</label>
+            <select id="cert-product-id" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ?? *</label>
+            <input type="date" id="cert-date" required class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??? ?? (PDF / ???) *</label>
+          <input type="file" id="cert-file" required accept=".pdf, image/*" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+        </div>
+        <div>
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? / ?????</label>
+          <input type="text" id="cert-memo" placeholder="?: ??????? (??)" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-upload-cert')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 font-medium">??</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">??? ??</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 6. History Modal -->
+  <div id="modal-history" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden">
+    <div class="modal-content bg-white dark:bg-slate-900 rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div>
+          <h3 id="history-modal-title" class="font-bold text-slate-900 dark:text-white text-base">?? ? ?? ??</h3>
+          <p id="history-modal-subtitle" class="text-xs text-slate-500 mt-0.5"></p>
+        </div>
+        <button onclick="closeModal('modal-history')" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="history-timeline-content" class="flex-1 overflow-y-auto py-4 space-y-3 text-xs">
+      </div>
+      <div class="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
+        <button type="button" onclick="closeModal('modal-history')" class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium text-xs">??</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Production Stop / Resume Modal -->
+  <div id="modal-stop" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden">
+    <div class="modal-content bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <h3 id="stop-modal-title" class="font-bold text-slate-900 dark:text-white text-base">?? ?? ??</h3>
+        <button onclick="closeModal('modal-stop')" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="form-stop" onsubmit="handleSaveStopStatus(event)" class="mt-4 space-y-4 text-xs">
+        <input type="hidden" id="stop-prod-id">
+        <input type="hidden" id="stop-action-type">
+        <p id="stop-modal-desc" class="text-slate-600 dark:text-slate-300"></p>
+        <div id="stop-reason-box">
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">?? ??</label>
+          <input type="text" id="stop-reason-input" placeholder="?: ??? ?? ??? ?? ?? ??" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+        </div>
+        <div id="resume-date-box" class="hidden">
+          <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">??? ???? *</label>
+          <input type="date" id="resume-date-input" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-stop')" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 font-medium">??</button>
+          <button type="submit" id="stop-submit-btn" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">??</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
