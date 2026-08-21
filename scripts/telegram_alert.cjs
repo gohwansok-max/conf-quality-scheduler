@@ -165,60 +165,64 @@ async function run() {
     }
   });
 
-  let message = `🧪 <b>[(주)코엔에프 자가품질검사 일일 알림]</b>\n`;
-  message += `📅 <b>기준일자:</b> ${todayStr}\n`;
-  message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+  const appUrl = 'https://gohwansok-max.github.io/koenf-quality-scheduler/';
+  const certificateRegisterUrl = `${appUrl}#certs-register`;
+  const totalActionCount = overdueProducts.length + urgentProducts.length + missingCertificateProducts.length + warningHealthCerts.length;
 
-  let hasAlert = false;
+  let message = `🧪 <b>코엔에프 품질 알림</b>\n`;
+  message += `📅 ${todayStr} · 확인 필요 <b>${totalActionCount}건</b>\n`;
+  message += `━━━━━━━━━━━━━━━━\n\n`;
 
   if (overdueProducts.length > 0) {
-    hasAlert = true;
-    message += `🚨 <b>[초과] 자가품질검사 기간 초과 (${overdueProducts.length}건)</b>\n`;
+    message += `🚨 <b>검사 기한 초과 · ${overdueProducts.length}건</b>\n`;
     overdueProducts.forEach((p, idx) => {
-      message += `${idx + 1}. <b>${escapeHtml(p.name)}</b> [${escapeHtml(p.typeName)}]\n`;
-      message += `   └ ⚠️ <b>${Math.abs(p.dDay)}일 초과</b> (마감일: ${p.deadline})\n`;
+      message += `${idx + 1}. <b>${escapeHtml(p.name)}</b>\n`;
+      message += `   ${escapeHtml(p.typeName)} · <b>${Math.abs(p.dDay)}일 초과</b> · 마감 ${p.deadline}\n`;
     });
     message += `\n`;
   }
 
   if (urgentProducts.length > 0) {
-    hasAlert = true;
-    message += `⚠️ <b>[임박] 14일 이내 마감 예정 (${urgentProducts.length}건)</b>\n`;
+    message += `⏰ <b>14일 이내 검사 마감 · ${urgentProducts.length}건</b>\n`;
     urgentProducts.forEach((p, idx) => {
-      message += `${idx + 1}. <b>${escapeHtml(p.name)}</b> [${escapeHtml(p.typeName)}]\n`;
-      message += `   └ ⏳ <b>D-${p.dDay}</b> (마감일: ${p.deadline})\n`;
+      message += `${idx + 1}. <b>${escapeHtml(p.name)}</b>\n`;
+      message += `   ${escapeHtml(p.typeName)} · <b>D-${p.dDay}</b> · 마감 ${p.deadline}\n`;
     });
     message += `\n`;
   }
 
   if (missingCertificateProducts.length > 0) {
-    hasAlert = true;
-    message += `📄 <b>[성적서] 최신 성적서 미등록 (${missingCertificateProducts.length}건)</b>\n`;
+    message += `📄 <b>최신 성적서 미등록 · ${missingCertificateProducts.length}건</b>\n`;
     missingCertificateProducts.forEach((p, idx) => {
-      const certificateText = p.latestInspectionDate ? `최신 성적서: ${p.latestInspectionDate}` : '등록된 제품별 성적서 없음';
-      message += `${idx + 1}. <b>${escapeHtml(p.name)}</b> [${escapeHtml(p.typeName)}]\n`;
-      message += `   └ 최근 제조일: ${p.lastManufactureDate} · ${certificateText}\n`;
+      const certificateText = p.latestInspectionDate ? `이전 성적서 ${p.latestInspectionDate}` : '등록된 제품별 성적서 없음';
+      message += `${idx + 1}. <b>${escapeHtml(p.name)}</b>\n`;
+      message += `   ${escapeHtml(p.typeName)} · 제조 ${p.lastManufactureDate} · ${certificateText}\n`;
     });
     message += `\n`;
   }
 
   if (warningHealthCerts.length > 0) {
-    hasAlert = true;
-    message += `📋 <b>[보건증] 만료 임박/초과 (${warningHealthCerts.length}건)</b>\n`;
+    message += `👤 <b>보건증 만료 주의 · ${warningHealthCerts.length}명</b>\n`;
     warningHealthCerts.forEach((c, idx) => {
-      const statusText = c.dDay < 0 ? `🚨 ${Math.abs(c.dDay)}일 초과` : `⏳ D-${c.dDay}`;
-      message += `${idx + 1}. <b>${escapeHtml(c.name)}</b> (${escapeHtml(c.dept)}) : ${statusText} (~${c.expiresAt})\n`;
+      const statusText = c.dDay < 0 ? `${Math.abs(c.dDay)}일 초과` : `D-${c.dDay}`;
+      message += `${idx + 1}. <b>${escapeHtml(c.name)}</b> · ${escapeHtml(c.dept)} · ${statusText}\n`;
     });
     message += `\n`;
   }
 
-  if (!hasAlert) {
-    message += `✅ <b>오늘 기간 초과·마감 임박·미성적서 품목이 없습니다.</b>\n`;
-    message += `(자가품질검사·성적서·보건증 일정이 정상 범위 내에 있습니다.)\n\n`;
+  if (totalActionCount === 0) {
+    message += `✅ <b>오늘 확인이 필요한 품목이 없습니다.</b>\n`;
+    message += `자가품질검사·성적서·보건증 일정이 정상입니다.\n\n`;
   }
 
-  message += `━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `👉 <b>스케줄러 웹앱 바로가기:</b>\nhttps://gohwansok-max.github.io/koenf-quality-scheduler/`;
+  message += `━━━━━━━━━━━━━━━━\n`;
+  message += `아래 버튼에서 상세 일정과 성적서를 바로 확인하세요.`;
+
+  const inlineKeyboard = [];
+  if (missingCertificateProducts.length > 0) {
+    inlineKeyboard.push([{ text: '📄 성적서 등록하기', url: certificateRegisterUrl }]);
+  }
+  inlineKeyboard.push([{ text: '🗓️ 스케줄러 열기', url: appUrl }]);
 
   if (DRY_RUN) {
     console.log('🧪 DRY RUN: 텔레그램 전송 없이 아래 메시지를 검증합니다.\n');
@@ -230,7 +234,8 @@ async function run() {
     chat_id: CHAT_ID,
     text: message,
     parse_mode: 'HTML',
-    disable_web_page_preview: true
+    disable_web_page_preview: true,
+    reply_markup: { inline_keyboard: inlineKeyboard }
   });
 
   const req = https.request({

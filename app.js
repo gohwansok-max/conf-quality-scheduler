@@ -483,6 +483,20 @@ function switchTab(tabId) {
   lucide.createIcons();
 }
 
+function getTabFromHash() {
+  const hash = window.location.hash.replace('#', '');
+  if (hash === 'certs-register') return 'certs';
+  return ['dashboard', 'products', 'types', 'health', 'certs', 'settings'].includes(hash) ? hash : 'dashboard';
+}
+
+function openRequestedRoute() {
+  const hash = window.location.hash.replace('#', '');
+  switchTab(getTabFromHash());
+  if (hash === 'certs-register') {
+    window.setTimeout(() => openUploadCertModal(), 0);
+  }
+}
+
 function renderCurrentTab() {
   if (currentTab === 'dashboard') renderDashboard();
   else if (currentTab === 'products') renderProducts();
@@ -2219,5 +2233,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   updatePwaInstallButton();
   await loadCloudState(false);
   initRealtimeSubscription();
-  switchTab('dashboard');
+  openRequestedRoute();
 });
+
+window.addEventListener('hashchange', openRequestedRoute);
