@@ -3,7 +3,7 @@ export function useAuth(options?: { redirectOnUnauthenticated?: boolean; redirec
     user: null,
     loading: false,
     error: null,
-    isAuthenticated: false,
+    isAuthenticated: true,
     refresh: () => Promise.resolve(),
     logout: () => Promise.resolve(),
   };
