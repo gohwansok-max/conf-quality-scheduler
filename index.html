@@ -197,6 +197,12 @@
           </div>
         </div>
 
+        <div class="dashboard-quick-filter-row" aria-label="대시보드 빠른 필터">
+          <button type="button" class="dashboard-quick-filter" data-dashboard-quick-filter="week" onclick="setDashboardQuickFilter('week')"><i data-lucide="calendar-days" class="w-3.5 h-3.5"></i><span>이번 주 마감</span></button>
+          <button type="button" class="dashboard-quick-filter" data-dashboard-quick-filter="month" onclick="setDashboardQuickFilter('month')"><i data-lucide="calendar-range" class="w-3.5 h-3.5"></i><span>이번 달 마감</span></button>
+          <button type="button" class="dashboard-quick-filter dashboard-quick-filter-certificate" data-dashboard-quick-filter="missing_certificate" onclick="setDashboardQuickFilter('missing_certificate')"><i data-lucide="file-warning" class="w-3.5 h-3.5"></i><span>미성적서 품목</span></button>
+        </div>
+
         <div class="dashboard-mobile-filter-panel md:hidden">
           <div class="dashboard-mobile-filter-title"><i data-lucide="sliders-horizontal" class="w-4 h-4"></i><span>추가 필터</span></div>
           <div class="dashboard-mobile-filter-grid">

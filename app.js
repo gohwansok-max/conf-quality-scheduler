@@ -468,6 +468,7 @@ let currentTab = 'dashboard';
 let dashboardFilter = 'all';
 let mobileSelectedProductIds = new Set();
 let dashboardFilteredProducts = [];
+let dashboardQuickFilter = 'all';
 
 function switchTab(tabId) {
   currentTab = tabId;
@@ -499,6 +500,38 @@ function setDashboardFilter(filter) {
   renderDashboard();
 }
 
+function getRemainingDaysThisWeek() {
+  const today = getTodayKstStr();
+  const day = new Date(`${today}T12:00:00+09:00`).getUTCDay();
+  return day === 0 ? 0 : 7 - day;
+}
+
+function getRemainingDaysThisMonth() {
+  const [year, month, day] = getTodayKstStr().split('-').map(Number);
+  return new Date(Date.UTC(year, month, 0)).getUTCDate() - day;
+}
+
+function hasCurrentCertificate(product) {
+  const relatedCertificates = appState.certificates
+    .filter(certificate => Number(certificate.productId) === Number(product.id) && certificate.inspectionDate)
+    .sort((a, b) => String(b.inspectionDate).localeCompare(String(a.inspectionDate)));
+  if (!relatedCertificates.length) return false;
+  if (!product.lastManufactureDate) return true;
+  return String(relatedCertificates[0].inspectionDate) >= String(product.lastManufactureDate);
+}
+
+function setDashboardQuickFilter(filter) {
+  dashboardQuickFilter = dashboardQuickFilter === filter ? 'all' : filter;
+  clearMobileSelection(false);
+  renderDashboard();
+}
+
+function updateDashboardQuickFilters() {
+  document.querySelectorAll('[data-dashboard-quick-filter]').forEach(button => {
+    button.classList.toggle('is-active', button.dataset.dashboardQuickFilter === dashboardQuickFilter);
+  });
+}
+
 function resetDashboardFilters() {
   const values = {
     'dash-search-input': '',
@@ -512,6 +545,7 @@ function resetDashboardFilters() {
     if (element) element.value = value;
   });
   dashboardFilter = 'all';
+  dashboardQuickFilter = 'all';
   clearMobileSelection(false);
   renderDashboard();
 }
@@ -528,13 +562,20 @@ function renderDashboard() {
   const deadlineFilter = document.getElementById('dash-deadline-select')?.value || 'all';
   const productionFilter = document.getElementById('dash-production-select')?.value || 'all';
 
-  const computedProducts = appState.products.map(getProductComputed);
+  const computedProducts = appState.products.map(product => {
+    const computed = getProductComputed(product);
+    return {
+      ...computed,
+      certificateMissing: computed.productionStatus === 'active' && !hasCurrentCertificate(computed)
+    };
+  });
   if (typeSelect) {
     const previousType = selectedType;
     typeSelect.innerHTML = `<option value="all">전체 식품유형</option>${appState.types.map(type => `<option value="${type.id}">${escapeHtml(type.name)}</option>`).join('')}`;
     typeSelect.value = Array.from(typeSelect.options).some(option => option.value === previousType) ? previousType : 'all';
   }
   const computedHealth = appState.healthCerts.map(getHealthCertComputed);
+  updateDashboardQuickFilters();
 
   const totalCount = computedProducts.length;
   const overdueCount = computedProducts.filter(p => p.status === 'overdue').length;
@@ -570,6 +611,9 @@ function renderDashboard() {
     if (deadlineFilter === 'today_7' && !(p.dDay >= 0 && p.dDay <= 7)) return false;
     if (deadlineFilter === 'days_8_30' && !(p.dDay >= 8 && p.dDay <= 30)) return false;
     if (deadlineFilter === 'over_30' && !(p.dDay > 30)) return false;
+    if (dashboardQuickFilter === 'week' && !(p.dDay >= 0 && p.dDay <= getRemainingDaysThisWeek())) return false;
+    if (dashboardQuickFilter === 'month' && !(p.dDay >= 0 && p.dDay <= getRemainingDaysThisMonth())) return false;
+    if (dashboardQuickFilter === 'missing_certificate' && !p.certificateMissing) return false;
     if (searchKeyword && !p.name.toLowerCase().includes(searchKeyword) && !p.typeName.toLowerCase().includes(searchKeyword)) return false;
     return true;
   });
@@ -617,6 +661,7 @@ function renderDashboard() {
       </div>
       <h3 class="mobile-schedule-title" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</h3>
       <div class="mobile-schedule-type">${escapeHtml(p.typeName)} · ${p.intervalMonths}개월 주기</div>
+      ${p.certificateMissing ? `<div class="mobile-certificate-missing"><i data-lucide="file-warning" class="w-3.5 h-3.5"></i><span>최신 성적서 미등록</span></div>` : ''}
       <dl class="mobile-schedule-meta">
         <div><dt>최근 제조일</dt><dd>${p.lastManufactureDate || '-'}</dd></div>
         <div><dt>검사 마감일</dt><dd>${p.nextDeadline || '-'}</dd></div>
