@@ -466,6 +466,8 @@ function renderStatusBadge(status, dDayText) {
 // ==================== 4. UI Navigation & Rendering ====================
 let currentTab = 'dashboard';
 let dashboardFilter = 'all';
+let mobileSelectedProductIds = new Set();
+let dashboardFilteredProducts = [];
 
 function switchTab(tabId) {
   currentTab = tabId;
@@ -497,6 +499,23 @@ function setDashboardFilter(filter) {
   renderDashboard();
 }
 
+function resetDashboardFilters() {
+  const values = {
+    'dash-search-input': '',
+    'dash-status-select': 'all',
+    'dash-type-select': 'all',
+    'dash-deadline-select': 'all',
+    'dash-production-select': 'all'
+  };
+  Object.entries(values).forEach(([id, value]) => {
+    const element = document.getElementById(id);
+    if (element) element.value = value;
+  });
+  dashboardFilter = 'all';
+  clearMobileSelection(false);
+  renderDashboard();
+}
+
 function renderDashboard() {
   const tbody = document.getElementById('dashboard-table-body');
   const mobileList = document.getElementById('dashboard-mobile-list');
@@ -504,8 +523,17 @@ function renderDashboard() {
 
   const searchKeyword = (document.getElementById('dash-search-input')?.value || '').trim().toLowerCase();
   const statusFilter = document.getElementById('dash-status-select')?.value || dashboardFilter || 'all';
+  const typeSelect = document.getElementById('dash-type-select');
+  const selectedType = typeSelect?.value || 'all';
+  const deadlineFilter = document.getElementById('dash-deadline-select')?.value || 'all';
+  const productionFilter = document.getElementById('dash-production-select')?.value || 'all';
 
   const computedProducts = appState.products.map(getProductComputed);
+  if (typeSelect) {
+    const previousType = selectedType;
+    typeSelect.innerHTML = `<option value="all">전체 식품유형</option>${appState.types.map(type => `<option value="${type.id}">${escapeHtml(type.name)}</option>`).join('')}`;
+    typeSelect.value = Array.from(typeSelect.options).some(option => option.value === previousType) ? previousType : 'all';
+  }
   const computedHealth = appState.healthCerts.map(getHealthCertComputed);
 
   const totalCount = computedProducts.length;
@@ -536,6 +564,12 @@ function renderDashboard() {
 
   let filtered = computedProducts.filter(p => {
     if (statusFilter !== 'all' && p.status !== statusFilter) return false;
+    if (selectedType !== 'all' && String(p.typeId) !== selectedType) return false;
+    if (productionFilter !== 'all' && p.productionStatus !== productionFilter) return false;
+    if (deadlineFilter === 'overdue' && !(p.dDay < 0)) return false;
+    if (deadlineFilter === 'today_7' && !(p.dDay >= 0 && p.dDay <= 7)) return false;
+    if (deadlineFilter === 'days_8_30' && !(p.dDay >= 8 && p.dDay <= 30)) return false;
+    if (deadlineFilter === 'over_30' && !(p.dDay > 30)) return false;
     if (searchKeyword && !p.name.toLowerCase().includes(searchKeyword) && !p.typeName.toLowerCase().includes(searchKeyword)) return false;
     return true;
   });
@@ -547,6 +581,9 @@ function renderDashboard() {
     return (a.dDay ?? 999) - (b.dDay ?? 999);
   });
 
+  dashboardFilteredProducts = filtered;
+  mobileSelectedProductIds = new Set([...mobileSelectedProductIds].filter(id => filtered.some(product => product.id === id)));
+  updateMobileBulkToolbar();
   document.getElementById('dash-filtered-count').textContent = `${filtered.length}건`;
 
   if (filtered.length === 0) {
@@ -562,8 +599,12 @@ function renderDashboard() {
   }
 
   mobileList.innerHTML = filtered.map(p => `
-    <article class="mobile-schedule-card">
+    <article class="mobile-schedule-card ${mobileSelectedProductIds.has(p.id) ? 'is-selected' : ''}">
       <div class="mobile-schedule-head">
+        <label class="mobile-card-select" aria-label="${escapeHtml(p.name)} 선택">
+          <input type="checkbox" ${mobileSelectedProductIds.has(p.id) ? 'checked' : ''} onchange="toggleMobileProductSelection(${p.id}, this.checked)">
+          <span></span>
+        </label>
         ${renderStatusBadge(p.status, formatDDay(p.dDay))}
         <div class="mobile-schedule-actions">
           <button onclick="viewHistory(${p.id})" class="mobile-icon-button" aria-label="${escapeHtml(p.name)} 검사 이력" title="검사 이력">
@@ -924,6 +965,121 @@ async function deleteProduct(id) {
     appState.products = appState.products.filter(x => x.id !== id);
     saveLocalState();
     renderCurrentTab();
+  }
+}
+
+function getSelectedMobileProducts() {
+  return appState.products.filter(product => mobileSelectedProductIds.has(product.id));
+}
+
+function toggleMobileProductSelection(productId, selected) {
+  if (selected) mobileSelectedProductIds.add(productId);
+  else mobileSelectedProductIds.delete(productId);
+  renderDashboard();
+}
+
+function selectAllFilteredProducts() {
+  dashboardFilteredProducts.forEach(product => mobileSelectedProductIds.add(product.id));
+  renderDashboard();
+}
+
+function clearMobileSelection(render = true) {
+  mobileSelectedProductIds.clear();
+  if (render) renderDashboard();
+}
+
+function updateMobileBulkToolbar() {
+  const toolbar = document.getElementById('mobile-bulk-toolbar');
+  const count = document.getElementById('mobile-bulk-count');
+  if (!toolbar || !count) return;
+  const size = mobileSelectedProductIds.size;
+  count.textContent = `${size}개 선택`;
+  toolbar.classList.toggle('hidden', size === 0);
+}
+
+function openBulkQuickRenewModal() {
+  const selected = getSelectedMobileProducts();
+  if (!selected.length) {
+    showToast('먼저 일괄 처리할 품목을 선택하세요.', 'error');
+    return;
+  }
+  document.getElementById('bulk-renew-count').textContent = `${selected.length}개`;
+  document.getElementById('bulk-renew-date').value = getTodayKstStr();
+  document.getElementById('bulk-renew-memo').value = `${getTodayKstStr()} 정기검사/생산 완료`;
+  openModal('modal-bulk-renew');
+}
+
+async function handleBulkQuickRenew(e) {
+  e.preventDefault();
+  const selected = getSelectedMobileProducts();
+  const newDate = document.getElementById('bulk-renew-date').value;
+  const memo = document.getElementById('bulk-renew-memo').value.trim() || '일괄 검사 완료 갱신';
+  if (!selected.length || !newDate) return;
+  if (!confirm(`${selected.length}개 품목의 최근 제조(검사)일을 ${newDate}로 일괄 갱신하시겠습니까?`)) return;
+
+  try {
+    if (supabaseClient && isCloudConnected) {
+      await Promise.all(selected.map(async product => {
+        await supabaseClient.from('quality_products').update({ last_manufacture_date: newDate }).eq('id', product.id);
+        await supabaseClient.from('quality_history').insert([{
+          product_id: product.id,
+          product_name: product.name,
+          manufacture_date: newDate,
+          previous_date: product.lastManufactureDate,
+          memo
+        }]);
+      }));
+      await loadCloudState();
+    } else {
+      selected.forEach((product, index) => {
+        const previousDate = product.lastManufactureDate;
+        product.lastManufactureDate = newDate;
+        appState.history.push({
+          id: Date.now() + index,
+          productId: product.id,
+          productName: product.name,
+          manufactureDate: newDate,
+          previousDate,
+          memo,
+          createdAt: new Date().toISOString()
+        });
+      });
+      saveLocalState();
+    }
+    clearMobileSelection(false);
+    closeModal('modal-bulk-renew');
+    renderDashboard();
+    showToast(`${selected.length}개 품목의 일정이 일괄 갱신되었습니다.`, 'success');
+  } catch (error) {
+    console.error('일괄 일정 갱신 실패:', error);
+    showToast('일괄 일정 갱신에 실패했습니다. 다시 시도하세요.', 'error');
+  }
+}
+
+async function bulkSetAlertStatus(status) {
+  const selected = getSelectedMobileProducts();
+  if (!selected.length) {
+    showToast('먼저 일괄 처리할 품목을 선택하세요.', 'error');
+    return;
+  }
+  const label = status === 'paused' ? '중지' : '재개';
+  if (!confirm(`${selected.length}개 품목의 알림을 일괄 ${label}하시겠습니까?`)) return;
+
+  try {
+    if (supabaseClient && isCloudConnected) {
+      const { error } = await supabaseClient.from('quality_products').update({ alert_status: status }).in('id', selected.map(product => product.id));
+      if (error) throw error;
+      await loadCloudState();
+    } else {
+      selected.forEach(product => { product.alertStatus = status; });
+      saveLocalState();
+    }
+    clearMobileSelection(false);
+    renderDashboard();
+    showToast(`${selected.length}개 품목의 알림을 일괄 ${label}했습니다.`, 'success');
+  } catch (error) {
+    console.error('일괄 알림 상태 변경 실패:', error);
+    showToast('일괄 알림 상태 변경에 실패했습니다. 다시 시도하세요.', 'error');
   }
 }
 
