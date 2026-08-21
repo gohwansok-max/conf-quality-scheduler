@@ -1853,6 +1853,71 @@ async function testTelegramNotification() {
   }
 }
 
+// PWA 설치 및 전체 화면 실행
+let deferredPwaInstallPrompt = null;
+
+function isPwaStandalone() {
+  return window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function updatePwaInstallButton() {
+  const button = document.getElementById('pwa-install-button');
+  if (!button) return;
+  if (isPwaStandalone()) {
+    button.classList.add('hidden');
+    return;
+  }
+  if (deferredPwaInstallPrompt) button.classList.remove('hidden');
+}
+
+async function installPwaApp() {
+  if (isPwaStandalone()) {
+    showToast('이미 전체 화면 앱으로 실행 중입니다.', 'success');
+    return;
+  }
+
+  if (deferredPwaInstallPrompt) {
+    deferredPwaInstallPrompt.prompt();
+    const choice = await deferredPwaInstallPrompt.userChoice;
+    deferredPwaInstallPrompt = null;
+    updatePwaInstallButton();
+    if (choice.outcome === 'accepted') {
+      showToast('홈 화면에 설치하는 중입니다.', 'success');
+    } else {
+      showToast('앱 설치를 취소했습니다.', 'info');
+    }
+    return;
+  }
+
+  const isAppleMobile = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isAppleMobile) {
+    showToast('Safari의 공유 버튼 → ‘홈 화면에 추가’를 선택하세요.', 'info');
+  } else {
+    showToast('브라우저 메뉴에서 ‘앱 설치’ 또는 ‘홈 화면에 추가’를 선택하세요.', 'info');
+  }
+}
+
+function registerPwa() {
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './' })
+      .then(() => console.info('PWA 서비스 워커가 등록되었습니다.'))
+      .catch(error => console.warn('PWA 서비스 워커 등록 실패:', error));
+  });
+
+  window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    deferredPwaInstallPrompt = event;
+    updatePwaInstallButton();
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredPwaInstallPrompt = null;
+    updatePwaInstallButton();
+    showToast('코엔에프 품질 스케줄러가 홈 화면에 설치되었습니다.', 'success');
+  });
+}
+
 // Utility Helpers
 function triggerPrint() {
   window.print();
@@ -1920,6 +1985,8 @@ function escapeHtml(str) {
 // Initial Boot
 document.addEventListener('DOMContentLoaded', async () => {
   initTheme();
+  registerPwa();
+  updatePwaInstallButton();
   await loadCloudState(false);
   initRealtimeSubscription();
   switchTab('dashboard');

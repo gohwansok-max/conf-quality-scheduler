@@ -617,3 +617,18 @@ tr.table-row-hover:hover {
 .dark .telegram-group-candidate-id {
   color: #c4b5fd;
 }
+
+/* 설치형 전체 화면(PWA)에서 노치·제스처 영역을 피합니다. */
+@media (display-mode: standalone) {
+  body {
+    min-height: 100dvh;
+  }
+
+  header {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  footer {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+  }
+}
