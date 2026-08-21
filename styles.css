@@ -844,3 +844,106 @@ tr.table-row-hover:hover {
   color: #bfdbfe;
   background: #172554;
 }
+
+/* 모바일 텍스트: 단어가 글자 단위로 끊기지 않도록 표기 규칙을 통일합니다. */
+.table-text-one-line,
+.table-text-two-lines {
+  min-width: 0;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+
+.table-text-one-line {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-text-two-lines {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.38;
+  white-space: normal;
+}
+
+@media (max-width: 1024px) {
+  /* 표를 억지로 좁히지 않고 좌우 스크롤해 날짜·제품명이 깔끔하게 유지됩니다. */
+  #view-products .overflow-x-auto > table {
+    min-width: 1180px;
+    table-layout: auto;
+  }
+
+  #view-types .overflow-x-auto > table {
+    min-width: 760px;
+    table-layout: auto;
+  }
+
+  #view-health .overflow-x-auto > table {
+    min-width: 1040px;
+    table-layout: auto;
+  }
+
+  #view-certificates .overflow-x-auto > table {
+    min-width: 980px;
+    table-layout: auto;
+  }
+
+  #view-products th,
+  #view-products td,
+  #view-types th,
+  #view-types td,
+  #view-health th,
+  #view-health td,
+  #view-certificates th,
+  #view-certificates td {
+    word-break: keep-all;
+    overflow-wrap: normal;
+    white-space: nowrap;
+  }
+
+  #view-products .table-text-two-lines,
+  #view-types .table-text-two-lines,
+  #view-health .table-text-two-lines,
+  #view-certificates .table-text-two-lines {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 767px) {
+  /* 카드·설명문은 짧게 두 줄까지만, 버튼은 문장 단위로 자연스럽게 줄바꿈합니다. */
+  .app-card > div > p,
+  .app-card > p {
+    display: -webkit-box;
+    overflow: hidden;
+    text-overflow: clip;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-height: 1.42;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+
+  .mobile-bulk-actions button {
+    min-height: 2.55rem;
+    white-space: normal;
+  }
+
+  .mobile-bulk-actions button span {
+    max-width: 100%;
+    line-height: 1.18;
+    text-align: center;
+    word-break: keep-all;
+  }
+
+  .mobile-schedule-title,
+  .mobile-schedule-type,
+  .mobile-schedule-meta dt,
+  .mobile-schedule-meta dd {
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+}

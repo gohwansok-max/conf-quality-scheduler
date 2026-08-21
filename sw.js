@@ -1,4 +1,4 @@
-const CACHE_NAME = 'koenf-quality-pwa-v2';
+const CACHE_NAME = 'koenf-quality-pwa-v3';
 const APP_SHELL = [
   './',
   './index.html',
@@ -31,15 +31,18 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (request.mode === 'navigate') {
+  const shouldRefreshFirst = request.mode === 'navigate' || ['script', 'style', 'manifest'].includes(request.destination);
+  if (shouldRefreshFirst) {
     event.respondWith(
       fetch(request)
         .then(response => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put('./index.html', copy));
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(request.mode === 'navigate' ? './index.html' : request, copy));
+          }
           return response;
         })
-        .catch(() => caches.match('./index.html'))
+        .catch(() => caches.match(request.mode === 'navigate' ? './index.html' : request))
     );
     return;
   }

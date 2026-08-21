@@ -669,8 +669,8 @@ function renderProducts() {
 
   tbody.innerHTML = computedProducts.map(p => `
     <tr class="table-row-hover transition">
-      <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">${escapeHtml(p.name)}</td>
-      <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${escapeHtml(p.typeName)}</span></td>
+      <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white"><span class="table-text-two-lines" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span></td>
+      <td class="py-3 px-4"><span class="table-text-one-line px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300" title="${escapeHtml(p.typeName)}">${escapeHtml(p.typeName)}</span></td>
       <td class="py-3 px-4">${p.intervalMonths}개월</td>
       <td class="py-3 px-4">${p.lastManufactureDate || '-'}</td>
       <td class="py-3 px-4 font-medium">${p.nextDeadline || '-'}</td>
@@ -685,7 +685,7 @@ function renderProducts() {
           ${p.alertStatus === 'paused' ? '🔕 알림중지' : '🔔 활성'}
         </button>
       </td>
-      <td class="py-3 px-4 text-slate-500 text-xs truncate max-w-xs">${escapeHtml(p.memo || '-')}</td>
+      <td class="py-3 px-4 text-slate-500 text-xs"><span class="table-text-two-lines" title="${escapeHtml(p.memo || '-')}">${escapeHtml(p.memo || '-')}</span></td>
       <td class="py-3 px-4 text-right action-column">
         <div class="flex items-center justify-end gap-1.5">
           <button onclick="viewHistory(${p.id})" class="p-1.5 text-slate-400 hover:text-blue-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="이력">
@@ -718,9 +718,9 @@ function renderTypes() {
     const prodCount = appState.products.filter(p => p.typeId === t.id).length;
     return `
       <tr class="table-row-hover transition">
-        <td class="py-3 px-4 font-bold text-slate-900 dark:text-white">${escapeHtml(t.name)}</td>
+        <td class="py-3 px-4 font-bold text-slate-900 dark:text-white"><span class="table-text-two-lines" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</span></td>
         <td class="py-3 px-4 font-semibold text-blue-600 dark:text-blue-400">${t.intervalMonths}개월</td>
-        <td class="py-3 px-4 text-slate-600 dark:text-slate-300">${escapeHtml(t.testItems || '-')}</td>
+        <td class="py-3 px-4 text-slate-600 dark:text-slate-300"><span class="table-text-two-lines" title="${escapeHtml(t.testItems || '-')}">${escapeHtml(t.testItems || '-')}</span></td>
         <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">${prodCount}개 제품</span></td>
         <td class="py-3 px-4 text-right action-column">
           <div class="flex items-center justify-end gap-1.5">
@@ -752,8 +752,8 @@ function renderHealthCerts() {
   tbody.innerHTML = computedHealth.map(c => `
     <tr class="table-row-hover transition">
       <td class="py-3 px-4">${renderStatusBadge(c.status, formatDDay(c.dDay))}</td>
-      <td class="py-3 px-4 font-bold text-slate-900 dark:text-white">${escapeHtml(c.employeeName)}</td>
-      <td class="py-3 px-4 text-slate-600 dark:text-slate-300">${escapeHtml(c.department || '-')}</td>
+      <td class="py-3 px-4 font-bold text-slate-900 dark:text-white"><span class="table-text-one-line" title="${escapeHtml(c.employeeName)}">${escapeHtml(c.employeeName)}</span></td>
+      <td class="py-3 px-4 text-slate-600 dark:text-slate-300"><span class="table-text-one-line" title="${escapeHtml(c.department || '-')}">${escapeHtml(c.department || '-')}</span></td>
       <td class="py-3 px-4">${c.issuedAt || '-'}</td>
       <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">${c.expiresAt || '-'}</td>
       <td class="py-3 px-4">
@@ -762,7 +762,7 @@ function renderHealthCerts() {
           : `<span class="text-slate-400 text-xs">미등록</span>`
         }
       </td>
-      <td class="py-3 px-4 text-slate-500 text-xs truncate max-w-xs">${escapeHtml(c.memo || '-')}</td>
+      <td class="py-3 px-4 text-slate-500 text-xs"><span class="table-text-two-lines" title="${escapeHtml(c.memo || '-')}">${escapeHtml(c.memo || '-')}</span></td>
       <td class="py-3 px-4 text-right action-column">
         <div class="flex items-center justify-end gap-1.5">
           <button onclick="openEditHealthCertModal(${c.id})" class="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="수정/갱신">
@@ -793,10 +793,10 @@ function renderCertificates() {
     const prodName = product ? product.name : '전체/유형공통';
     return `
       <tr class="table-row-hover transition">
-        <td class="py-3 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">${escapeHtml(c.certNumber || '-')}</td>
-        <td class="py-3 px-4 font-medium text-slate-900 dark:text-white">${escapeHtml(prodName)}</td>
+        <td class="py-3 px-4 font-mono font-bold text-blue-600 dark:text-blue-400"><span class="table-text-one-line" title="${escapeHtml(c.certNumber || '-')}">${escapeHtml(c.certNumber || '-')}</span></td>
+        <td class="py-3 px-4 font-medium text-slate-900 dark:text-white"><span class="table-text-two-lines" title="${escapeHtml(prodName)}">${escapeHtml(prodName)}</span></td>
         <td class="py-3 px-4">${c.inspectionDate || '-'}</td>
-        <td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-medium truncate max-w-xs">${escapeHtml(c.fileName || '성적서.pdf')}</td>
+        <td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-medium"><span class="table-text-one-line" title="${escapeHtml(c.fileName || '성적서.pdf')}">${escapeHtml(c.fileName || '성적서.pdf')}</span></td>
         <td class="py-3 px-4 text-slate-400 text-xs">${c.createdAt ? c.createdAt.slice(0, 10) : '-'}</td>
         <td class="py-3 px-4 text-right action-column">
           <div class="flex items-center justify-end gap-2">
