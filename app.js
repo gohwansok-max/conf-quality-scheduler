@@ -77,7 +77,7 @@ async function deleteFileFromDB(id) {
 }
 
 // ==================== 2. State & Sample Data ====================
-const STORAGE_KEY = 'koenf_quality_data_v2';
+const STORAGE_KEY = 'koenf_quality_data_v3';
 
 const DEFAULT_DATA = {
   types: [
@@ -123,7 +123,7 @@ let appState = null;
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
+    if (raw && !raw.includes('????') && !raw.includes('??')) {
       appState = JSON.parse(raw);
       if (!appState.types || !appState.products) appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
     } else {
