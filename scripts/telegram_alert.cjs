@@ -1,5 +1,5 @@
 /**
- * (주)코엔에프 자가품질검사 및 보건증 일일 텔레그램 알림 자동 발송 스크립트 (v2 - HTML Formatted)
+ * (주)코엔에프 자가품질검사 및 보건증 일일 텔레그램 알림 자동 발송 스크립트 (Supabase 연동 버전)
  */
 const https = require('https');
 const fs = require('fs');
@@ -8,55 +8,44 @@ const path = require('path');
 // 1. 환경변수 확인
 const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const CHAT_ID = (process.env.TELEGRAM_CHAT_ID || '').trim();
-
-console.log('🔍 텔레그램 환경변수 점검:');
-console.log('- BOT_TOKEN 존재 여부:', !!BOT_TOKEN, BOT_TOKEN ? `(길이: ${BOT_TOKEN.length}, 시작: ${BOT_TOKEN.slice(0, 6)}...)` : '');
-console.log('- CHAT_ID 존재 여부:', !!CHAT_ID, CHAT_ID ? `(값: ${CHAT_ID})` : '');
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://hooaeqywrdihninxnvtb.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_3iDGX80MZlMhAPCthcBKDA_TDUHDwhz';
 
 if (!BOT_TOKEN || !CHAT_ID) {
-  console.error('❌ 오류: TELEGRAM_BOT_TOKEN 또는 TELEGRAM_CHAT_ID가 GitHub Secrets에 설정되지 않았습니다.');
-  console.error('GitHub 저장소 Settings -> Secrets and variables -> Actions에서 확인해 주세요.');
+  console.error('❌ 오류: TELEGRAM_BOT_TOKEN 또는 TELEGRAM_CHAT_ID가 설정되지 않았습니다.');
   process.exit(1);
 }
 
-// 2. 기본 데이터 로드
-let data = {
-  types: [
-    { id: 1, name: '액상차', intervalMonths: 2 },
-    { id: 2, name: '음료베이스', intervalMonths: 2 },
-    { id: 3, name: '기타가공품', intervalMonths: 3 },
-    { id: 4, name: '복합조미식품', intervalMonths: 3 },
-    { id: 5, name: '과·채가공품', intervalMonths: 2 },
-    { id: 6, name: '혼합음료', intervalMonths: 2 }
-  ],
-  products: [
-    { id: 1, typeId: 1, name: '코엔에프 포션 유자차 30g', intervalMonths: 2, lastManufactureDate: '2026-06-25', productionStatus: 'active', alertStatus: 'active' },
-    { id: 2, typeId: 2, name: '코엔에프 자몽에이드 베이스 1kg', intervalMonths: 2, lastManufactureDate: '2026-06-10', productionStatus: 'active', alertStatus: 'active' },
-    { id: 3, typeId: 3, name: '코엔에프 레몬밤 추출분말 500g', intervalMonths: 3, lastManufactureDate: '2026-07-01', productionStatus: 'active', alertStatus: 'active' },
-    { id: 4, typeId: 4, name: '코엔에프 만능간장 베이스 2kg', intervalMonths: 3, lastManufactureDate: '2026-08-01', productionStatus: 'active', alertStatus: 'active' },
-    { id: 5, typeId: 1, name: '코엔에프 헛개수 농축액 1.2kg', intervalMonths: 2, lastManufactureDate: '2026-05-15', productionStatus: 'stopped', stopReason: '원료 수급 조정', alertStatus: 'active' },
-    { id: 6, typeId: 2, name: '코엔에프 유기농 석류베이스 1kg', intervalMonths: 2, lastManufactureDate: '2026-07-20', productionStatus: 'active', alertStatus: 'active' }
-  ],
-  healthCerts: [
-    { id: 1, employeeName: '김품질', department: '품질관리팀', issuedAt: '2025-09-10', expiresAt: '2026-09-10', employmentStatus: 'active', alertStatus: 'active' },
-    { id: 2, employeeName: '이생산', department: '생산1팀', issuedAt: '2025-08-15', expiresAt: '2026-08-15', employmentStatus: 'active', alertStatus: 'active' },
-    { id: 3, employeeName: '박공정', department: '생산2팀', issuedAt: '2025-09-01', expiresAt: '2026-09-01', employmentStatus: 'active', alertStatus: 'active' },
-    { id: 4, employeeName: '최개발', department: '연구소', issuedAt: '2026-03-20', expiresAt: '2027-03-20', employmentStatus: 'active', alertStatus: 'active' }
-  ]
-};
-
-const customDataPath = path.join(__dirname, '..', 'data', 'schedule.json');
-if (fs.existsSync(customDataPath)) {
-  try {
-    const raw = fs.readFileSync(customDataPath, 'utf8');
-    const parsed = JSON.parse(raw);
-    if (parsed.products && parsed.types) {
-      data = parsed;
-      console.log('✅ data/schedule.json 커스텀 데이터 로드 완료');
-    }
-  } catch (e) {
-    console.warn('⚠️ data/schedule.json 로드 실패, 기본 데이터 사용');
-  }
+// 2. HTTP Helper for Supabase REST API
+function fetchSupabase(table) {
+  return new Promise((resolve) => {
+    const url = new URL(`${SUPABASE_URL}/rest/v1/${table}?select=*`);
+    const req = https.request({
+      hostname: url.hostname,
+      path: url.pathname + url.search,
+      method: 'GET',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    }, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        try {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(JSON.parse(body));
+          } else {
+            resolve(null);
+          }
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.end();
+  });
 }
 
 // 3. KST 기준 날짜 및 D-Day 계산
@@ -92,141 +81,152 @@ function escapeHtml(str) {
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-const todayStr = getTodayKstStr();
+async function run() {
+  const todayStr = getTodayKstStr();
 
-// 4. 제품 상태 계산
-const overdueProducts = [];
-const urgentProducts = [];
+  // 클라우드 데이터 로드
+  const [cloudTypes, cloudProducts, cloudHealth] = await Promise.all([
+    fetchSupabase('quality_types'),
+    fetchSupabase('quality_products'),
+    fetchSupabase('quality_health_certs')
+  ]);
 
-data.products.forEach(p => {
-  if (p.productionStatus === 'stopped' || p.alertStatus === 'paused') return;
-  const type = data.types.find(t => t.id === Number(p.typeId)) || { name: '기타' };
-  const interval = Number(p.intervalMonths || type.intervalMonths || 2);
-  const deadline = calcNextDeadline(p.lastManufactureDate, interval);
-  const dDay = calcDDay(deadline, todayStr);
+  let types = cloudTypes || [
+    { id: 1, name: '액상차', interval_months: 2 },
+    { id: 2, name: '음료베이스', interval_months: 2 },
+    { id: 3, name: '기타가공품', interval_months: 3 },
+    { id: 4, name: '복합조미식품', interval_months: 3 },
+    { id: 5, name: '과·채가공품', interval_months: 2 },
+    { id: 6, name: '혼합음료', interval_months: 2 }
+  ];
 
-  if (dDay !== null) {
-    if (dDay < 0) {
-      overdueProducts.push({ name: p.name, typeName: type.name, deadline, dDay, lastDate: p.lastManufactureDate });
-    } else if (dDay <= 14) {
-      urgentProducts.push({ name: p.name, typeName: type.name, deadline, dDay, lastDate: p.lastManufactureDate });
+  let products = cloudProducts || [
+    { id: 1, type_id: 1, name: '코엔에프 포션 유자차 30g', interval_months: 2, last_manufacture_date: '2026-06-25', production_status: 'active', alert_status: 'active' },
+    { id: 2, type_id: 2, name: '코엔에프 자몽에이드 베이스 1kg', interval_months: 2, last_manufacture_date: '2026-06-10', production_status: 'active', alert_status: 'active' },
+    { id: 3, type_id: 3, name: '코엔에프 레몬밤 추출분말 500g', interval_months: 3, last_manufacture_date: '2026-07-01', production_status: 'active', alert_status: 'active' },
+    { id: 4, type_id: 4, name: '코엔에프 만능간장 베이스 2kg', interval_months: 3, last_manufacture_date: '2026-08-01', production_status: 'active', alert_status: 'active' },
+    { id: 5, type_id: 1, name: '코엔에프 헛개수 농축액 1.2kg', interval_months: 2, last_manufacture_date: '2026-05-15', production_status: 'stopped', stop_reason: '원료 수급 조정', alert_status: 'active' },
+    { id: 6, type_id: 2, name: '코엔에프 유기농 석류베이스 1kg', interval_months: 2, last_manufacture_date: '2026-07-20', production_status: 'active', alert_status: 'active' }
+  ];
+
+  let healthCerts = cloudHealth || [
+    { id: 1, employee_name: '김품질', department: '품질관리팀', issued_at: '2025-09-10', expires_at: '2026-09-10', employment_status: 'active', alert_status: 'active' },
+    { id: 2, employee_name: '이생산', department: '생산1팀', issued_at: '2025-08-15', expires_at: '2026-08-15', employment_status: 'active', alert_status: 'active' },
+    { id: 3, employee_name: '박공정', department: '생산2팀', issued_at: '2025-09-01', expires_at: '2026-09-01', employment_status: 'active', alert_status: 'active' },
+    { id: 4, employee_name: '최개발', department: '연구소', issued_at: '2026-03-20', expires_at: '2027-03-20', employment_status: 'active', alert_status: 'active' }
+  ];
+
+  const overdueProducts = [];
+  const urgentProducts = [];
+
+  products.forEach(p => {
+    if (p.production_status === 'stopped' || p.alert_status === 'paused') return;
+    const type = types.find(t => t.id === Number(p.type_id)) || { name: '기타', interval_months: 2 };
+    const interval = Number(p.interval_months || type.interval_months || 2);
+    const deadline = calcNextDeadline(p.last_manufacture_date, interval);
+    const dDay = calcDDay(deadline, todayStr);
+
+    if (dDay !== null) {
+      if (dDay < 0) overdueProducts.push({ name: p.name, typeName: type.name, deadline, dDay });
+      else if (dDay <= 14) urgentProducts.push({ name: p.name, typeName: type.name, deadline, dDay });
     }
-  }
-});
-
-// 5. 보건증 상태 계산
-const warningHealthCerts = [];
-(data.healthCerts || []).forEach(c => {
-  if (c.employmentStatus === 'inactive' || c.alertStatus === 'paused') return;
-  const dDay = calcDDay(c.expiresAt, todayStr);
-  if (dDay !== null && dDay <= 30) {
-    warningHealthCerts.push({ name: c.employeeName, dept: c.department || '미지정', expiresAt: c.expiresAt, dDay });
-  }
-});
-
-// 6. 텔레그램 HTML 메시지 조립
-let message = `🧪 <b>[(주)코엔에프 자가품질검사 일일 알림]</b>\n`;
-message += `📅 <b>기준일자:</b> ${todayStr}\n`;
-message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-let hasAlert = false;
-
-if (overdueProducts.length > 0) {
-  hasAlert = true;
-  message += `🚨 <b>[초과] 자가품질검사 기간 초과 (${overdueProducts.length}건)</b>\n`;
-  overdueProducts.forEach((p, idx) => {
-    message += `${idx + 1}. <b>${escapeHtml(p.name)}</b> [${escapeHtml(p.typeName)}]\n`;
-    message += `   └ ⚠️ <b>${Math.abs(p.dDay)}일 초과</b> (마감일: ${p.deadline})\n`;
   });
-  message += `\n`;
-}
 
-if (urgentProducts.length > 0) {
-  hasAlert = true;
-  message += `⚠️ <b>[임박] 14일 이내 마감 예정 (${urgentProducts.length}건)</b>\n`;
-  urgentProducts.forEach((p, idx) => {
-    message += `${idx + 1}. <b>${escapeHtml(p.name)}</b> [${escapeHtml(p.typeName)}]\n`;
-    message += `   └ ⏳ <b>D-${p.dDay}</b> (마감일: ${p.deadline})\n`;
+  const warningHealthCerts = [];
+  healthCerts.forEach(c => {
+    if (c.employment_status === 'inactive' || c.alert_status === 'paused') return;
+    const dDay = calcDDay(c.expires_at, todayStr);
+    if (dDay !== null && dDay <= 30) {
+      warningHealthCerts.push({ name: c.employee_name, dept: c.department || '미지정', expiresAt: c.expires_at, dDay });
+    }
   });
-  message += `\n`;
-}
 
-if (warningHealthCerts.length > 0) {
-  hasAlert = true;
-  message += `📋 <b>[보건증] 만료 임박/초과 (${warningHealthCerts.length}건)</b>\n`;
-  warningHealthCerts.forEach((c, idx) => {
-    const statusText = c.dDay < 0 ? `🚨 ${Math.abs(c.dDay)}일 초과` : `⏳ D-${c.dDay}`;
-    message += `${idx + 1}. <b>${escapeHtml(c.name)}</b> (${escapeHtml(c.dept)}) : ${statusText} (~${c.expiresAt})\n`;
-  });
-  message += `\n`;
-}
+  let message = `🧪 <b>[(주)코엔에프 자가품질검사 일일 알림]</b>\n`;
+  message += `📅 <b>기준일자:</b> ${todayStr}\n`;
+  message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-if (!hasAlert) {
-  message += `✅ <b>오늘 기간 초과 또는 마감 임박 품목이 없습니다.</b>\n`;
-  message += `(모든 자가품질검사 및 보건증 일정이 정상 범위 내에 있습니다.)\n\n`;
-}
+  let hasAlert = false;
 
-message += `━━━━━━━━━━━━━━━━━━━━\n`;
-message += `👉 <b>스케줄러 웹앱 바로가기:</b>\nhttps://gohwansok-max.github.io/koenf-quality-scheduler/`;
-
-console.log('--- 전송할 메시지 내용 ---');
-console.log(message);
-console.log('-------------------------');
-
-// 7. Telegram Bot API 호출
-const postData = JSON.stringify({
-  chat_id: CHAT_ID,
-  text: message,
-  parse_mode: 'HTML',
-  disable_web_page_preview: true
-});
-
-const options = {
-  hostname: 'api.telegram.org',
-  port: 443,
-  path: `/bot${BOT_TOKEN}/sendMessage`,
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Content-Length': Buffer.byteLength(postData)
+  if (overdueProducts.length > 0) {
+    hasAlert = true;
+    message += `🚨 <b>[초과] 자가품질검사 기간 초과 (${overdueProducts.length}건)</b>\n`;
+    overdueProducts.forEach((p, idx) => {
+      message += `${idx + 1}. <b>${escapeHtml(p.name)}</b> [${escapeHtml(p.typeName)}]\n`;
+      message += `   └ ⚠️ <b>${Math.abs(p.dDay)}일 초과</b> (마감일: ${p.deadline})\n`;
+    });
+    message += `\n`;
   }
-};
 
-const req = https.request(options, (res) => {
-  let body = '';
-  res.on('data', chunk => body += chunk);
-  res.on('end', () => {
-    try {
-      const response = JSON.parse(body);
-      if (response.ok) {
-        console.log('🎉 텔레그램 메시지가 성공적으로 발송되었습니다!');
-      } else {
-        console.error('❌ 텔레그램 API 오류 응답:');
-        console.error(`- HTTP Status: ${res.statusCode}`);
-        console.error(`- Error Code: ${response.error_code}`);
-        console.error(`- Description: ${response.description}`);
+  if (urgentProducts.length > 0) {
+    hasAlert = true;
+    message += `⚠️ <b>[임박] 14일 이내 마감 예정 (${urgentProducts.length}건)</b>\n`;
+    urgentProducts.forEach((p, idx) => {
+      message += `${idx + 1}. <b>${escapeHtml(p.name)}</b> [${escapeHtml(p.typeName)}]\n`;
+      message += `   └ ⏳ <b>D-${p.dDay}</b> (마감일: ${p.deadline})\n`;
+    });
+    message += `\n`;
+  }
 
-        if (response.error_code === 400 && response.description.includes('chat not found')) {
-          console.error('\n💡 해결 팁: CHAT_ID가 잘못되었거나, 봇이 해당 채팅방에 초대되지 않았습니다.');
-        } else if (response.error_code === 403) {
-          console.error('\n💡 해결 팁: 봇에게 먼저 말을 걸지 않았습니다! 텔레그램에서 해당 봇과의 채팅방을 열고 [Start / 시작] 버튼을 꼭 눌러주세요.');
-        } else if (response.error_code === 401 || response.error_code === 404) {
-          console.error('\n💡 해결 팁: TELEGRAM_BOT_TOKEN 값이 올바른지 다시 확인해 주세요.');
+  if (warningHealthCerts.length > 0) {
+    hasAlert = true;
+    message += `📋 <b>[보건증] 만료 임박/초과 (${warningHealthCerts.length}건)</b>\n`;
+    warningHealthCerts.forEach((c, idx) => {
+      const statusText = c.dDay < 0 ? `🚨 ${Math.abs(c.dDay)}일 초과` : `⏳ D-${c.dDay}`;
+      message += `${idx + 1}. <b>${escapeHtml(c.name)}</b> (${escapeHtml(c.dept)}) : ${statusText} (~${c.expiresAt})\n`;
+    });
+    message += `\n`;
+  }
+
+  if (!hasAlert) {
+    message += `✅ <b>오늘 기간 초과 또는 마감 임박 품목이 없습니다.</b>\n`;
+    message += `(모든 자가품질검사 및 보건증 일정이 정상 범위 내에 있습니다.)\n\n`;
+  }
+
+  message += `━━━━━━━━━━━━━━━━━━━━\n`;
+  message += `👉 <b>스케줄러 웹앱 바로가기:</b>\nhttps://gohwansok-max.github.io/koenf-quality-scheduler/`;
+
+  const postData = JSON.stringify({
+    chat_id: CHAT_ID,
+    text: message,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true
+  });
+
+  const req = https.request({
+    hostname: 'api.telegram.org',
+    port: 443,
+    path: `/bot${BOT_TOKEN}/sendMessage`,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(postData)
+    }
+  }, (res) => {
+    let body = '';
+    res.on('data', chunk => body += chunk);
+    res.on('end', () => {
+      try {
+        const response = JSON.parse(body);
+        if (response.ok) {
+          console.log('🎉 텔레그램 메시지가 성공적으로 발송되었습니다!');
+        } else {
+          console.error('❌ 텔레그램 API 오류:', response.description);
+          process.exit(1);
         }
-
+      } catch (err) {
+        console.error('❌ 응답 파싱 실패:', body);
         process.exit(1);
       }
-    } catch (err) {
-      console.error('❌ 응답 파싱 실패:', body);
-      process.exit(1);
-    }
+    });
   });
-});
 
-req.on('error', (e) => {
-  console.error('❌ 네트워크 오류:', e.message);
-  process.exit(1);
-});
+  req.on('error', (e) => {
+    console.error('❌ 네트워크 오류:', e.message);
+    process.exit(1);
+  });
 
-req.write(postData);
-req.end();
+  req.write(postData);
+  req.end();
+}
+
+run();

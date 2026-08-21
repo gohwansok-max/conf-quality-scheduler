@@ -1,82 +1,21 @@
 /**
- * (주)코엔에프 자가품질검사 스케줄러 - 메인 자바스크립트
+ * (주)코엔에프 자가품질검사 스케줄러 - Supabase 실시간 클라우드 연동 버전
  */
 
-// ==================== 1. IndexedDB File Engine ====================
-const DB_NAME = 'KoenfQualityDB';
-const DB_VERSION = 1;
-const STORE_FILES = 'files';
+// ==================== 1. Supabase Client Setup ====================
+const SUPABASE_URL = 'https://hooaeqywrdihninxnvtb.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_3iDGX80MZlMhAPCthcBKDA_TDUHDwhz';
 
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = (e) => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(STORE_FILES)) {
-        db.createObjectStore(STORE_FILES, { keyPath: 'id' });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function saveFileToDB(id, fileObj) {
-  try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_FILES, 'readwrite');
-      const store = tx.objectStore(STORE_FILES);
-      const req = store.put({
-        id,
-        file: fileObj,
-        name: fileObj.name,
-        type: fileObj.type,
-        size: fileObj.size,
-        savedAt: new Date().toISOString()
-      });
-      req.onsuccess = () => resolve(true);
-      req.onerror = () => reject(req.error);
-    });
-  } catch (e) {
-    console.error('IndexedDB save error:', e);
-    return false;
+let supabaseClient = null;
+try {
+  if (window.supabase) {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
+} catch (err) {
+  console.warn('Supabase 초기화 경고:', err);
 }
 
-async function getFileFromDB(id) {
-  try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_FILES, 'readonly');
-      const store = tx.objectStore(STORE_FILES);
-      const req = store.get(id);
-      req.onsuccess = () => resolve(req.result ? req.result.file : null);
-      req.onerror = () => reject(req.error);
-    });
-  } catch (e) {
-    console.error('IndexedDB get error:', e);
-    return null;
-  }
-}
-
-async function deleteFileFromDB(id) {
-  try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_FILES, 'readwrite');
-      const store = tx.objectStore(STORE_FILES);
-      const req = store.delete(id);
-      req.onsuccess = () => resolve(true);
-      req.onerror = () => reject(req.error);
-    });
-  } catch (e) {
-    console.error('IndexedDB delete error:', e);
-    return false;
-  }
-}
-
-// ==================== 2. State & Sample Data ====================
+// ==================== 2. State & Fallback Data ====================
 const STORAGE_KEY = 'koenf_quality_data_v3';
 
 const DEFAULT_DATA = {
@@ -101,13 +40,13 @@ const DEFAULT_DATA = {
     { id: 2, productId: 2, productName: '코엔에프 자몽에이드 베이스 1kg', manufactureDate: '2026-06-10', previousDate: '2026-04-10', memo: '정기 검사 적합', createdAt: '2026-06-10T09:00:00Z' }
   ],
   healthCerts: [
-    { id: 1, employeeName: '김품질', department: '품질관리팀', issuedAt: '2025-09-10', expiresAt: '2026-09-10', warningDays: 30, memo: '팀장 정기 검진', employmentStatus: 'active', alertStatus: 'active' },
-    { id: 2, employeeName: '이생산', department: '생산1팀', issuedAt: '2025-08-15', expiresAt: '2026-08-15', warningDays: 30, memo: '포장 라인 반장', employmentStatus: 'active', alertStatus: 'active' },
-    { id: 3, employeeName: '박공정', department: '생산2팀', issuedAt: '2025-09-01', expiresAt: '2026-09-01', warningDays: 30, memo: '살균 공정 담당', employmentStatus: 'active', alertStatus: 'active' },
-    { id: 4, employeeName: '최개발', department: '연구소', issuedAt: '2026-03-20', expiresAt: '2027-03-20', warningDays: 30, memo: '신제품 개발실', employmentStatus: 'active', alertStatus: 'active' }
+    { id: 1, employeeName: '김품질', department: '품질관리팀', issuedAt: '2025-09-10', expiresAt: '2026-09-10', warningDays: 30, memo: '팀장 정기 검진', fileUrl: '', fileName: '', employmentStatus: 'active', alertStatus: 'active' },
+    { id: 2, employeeName: '이생산', department: '생산1팀', issuedAt: '2025-08-15', expiresAt: '2026-08-15', warningDays: 30, memo: '포장 라인 반장', fileUrl: '', fileName: '', employmentStatus: 'active', alertStatus: 'active' },
+    { id: 3, employeeName: '박공정', department: '생산2팀', issuedAt: '2025-09-01', expiresAt: '2026-09-01', warningDays: 30, memo: '살균 공정 담당', fileUrl: '', fileName: '', employmentStatus: 'active', alertStatus: 'active' },
+    { id: 4, employeeName: '최개발', department: '연구소', issuedAt: '2026-03-20', expiresAt: '2027-03-20', warningDays: 30, memo: '신제품 개발실', fileUrl: '', fileName: '', employmentStatus: 'active', alertStatus: 'active' }
   ],
   certificates: [
-    { id: 1, certNumber: 'CONF-QC-2026-001', productId: 1, inspectionDate: '2026-06-25', fileName: '2026_06_유자차_시험성적서.pdf', fileSize: 1048576, memo: '한국식품연구원 (적합)', createdAt: '2026-06-25T10:00:00Z' }
+    { id: 1, certNumber: 'CONF-QC-2026-001', productId: 1, inspectionDate: '2026-06-25', fileUrl: '', fileName: '2026_06_유자차_시험성적서.pdf', fileSize: 1048576, memo: '한국식품연구원 (적합)', createdAt: '2026-06-25T10:00:00Z' }
   ],
   settings: {
     warningDays: 14,
@@ -119,8 +58,134 @@ const DEFAULT_DATA = {
   }
 };
 
-let appState = null;
-function loadState() {
+let appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
+let isCloudConnected = false;
+
+function updateCloudBadge(connected) {
+  isCloudConnected = connected;
+  const badge = document.getElementById('cloud-status-badge');
+  if (!badge) return;
+  if (connected) {
+    badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300';
+    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><span>실시간 클라우드 연결됨</span>`;
+  } else {
+    badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300';
+    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span>로컬 스토리지 모드</span>`;
+  }
+}
+
+async function loadCloudState(showToastNotice = false) {
+  if (!supabaseClient) {
+    loadLocalState();
+    return;
+  }
+
+  try {
+    const [resTypes, resProds, resHistory, resHealth, resCerts, resSettings] = await Promise.all([
+      supabaseClient.from('quality_types').select('*').order('id'),
+      supabaseClient.from('quality_products').select('*').order('id'),
+      supabaseClient.from('quality_history').select('*').order('id', { ascending: false }),
+      supabaseClient.from('quality_health_certs').select('*').order('id'),
+      supabaseClient.from('quality_certificates').select('*').order('id', { ascending: false }),
+      supabaseClient.from('quality_settings').select('*')
+    ]);
+
+    if (resTypes.error || resProds.error) {
+      console.warn('Supabase 테이블 조회 실패 (로컬 모드 유지):', resTypes.error || resProds.error);
+      loadLocalState();
+      updateCloudBadge(false);
+      return;
+    }
+
+    // 매핑 (snake_case -> camelCase)
+    appState.types = (resTypes.data || []).map(t => ({
+      id: t.id,
+      name: t.name,
+      intervalMonths: t.interval_months,
+      testItems: t.test_items || ''
+    }));
+
+    appState.products = (resProds.data || []).map(p => ({
+      id: p.id,
+      typeId: p.type_id,
+      name: p.name,
+      intervalMonths: p.interval_months,
+      lastManufactureDate: p.last_manufacture_date,
+      memo: p.memo || '',
+      productionStatus: p.production_status || 'active',
+      stopReason: p.stop_reason || '',
+      alertStatus: p.alert_status || 'active'
+    }));
+
+    appState.history = (resHistory.data || []).map(h => ({
+      id: h.id,
+      productId: h.product_id,
+      productName: h.product_name,
+      manufactureDate: h.manufacture_date,
+      previousDate: h.previous_date,
+      memo: h.memo || '',
+      createdAt: h.created_at
+    }));
+
+    appState.healthCerts = (resHealth.data || []).map(c => ({
+      id: c.id,
+      employeeName: c.employee_name,
+      department: c.department || '',
+      issuedAt: c.issued_at,
+      expiresAt: c.expires_at,
+      warningDays: c.warning_days || 30,
+      memo: c.memo || '',
+      fileUrl: c.file_url || '',
+      fileName: c.file_name || '',
+      hasFile: !!(c.file_url || c.file_name),
+      employmentStatus: c.employment_status || 'active',
+      alertStatus: c.alert_status || 'active'
+    }));
+
+    appState.certificates = (resCerts.data || []).map(c => ({
+      id: c.id,
+      certNumber: c.cert_number,
+      productId: c.product_id,
+      inspectionDate: c.inspection_date,
+      fileUrl: c.file_url || '',
+      fileName: c.file_name || '',
+      fileSize: c.file_size || 0,
+      memo: c.memo || '',
+      createdAt: c.created_at
+    }));
+
+    if (resSettings.data && resSettings.data.length > 0) {
+      resSettings.data.forEach(s => {
+        if (s.key && s.value) appState.settings[s.key] = s.value;
+      });
+    }
+
+    saveLocalState();
+    updateCloudBadge(true);
+    if (showToastNotice) showToast('클라우드 실시간 데이터가 동기화되었습니다.', 'success');
+    renderCurrentTab();
+  } catch (err) {
+    console.error('클라우드 동기화 중 오류:', err);
+    loadLocalState();
+    updateCloudBadge(false);
+  }
+}
+
+function initRealtimeSubscription() {
+  if (!supabaseClient) return;
+  try {
+    supabaseClient.channel('quality_realtime_all')
+      .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+        console.log('⚡ 실시간 변경 감지 (팀원 업데이트):', payload.table, payload.eventType);
+        loadCloudState(false);
+      })
+      .subscribe();
+  } catch (e) {
+    console.warn('Realtime 구독 설정 실패:', e);
+  }
+}
+
+function loadLocalState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw && !raw.includes('????') && !raw.includes('??')) {
@@ -128,14 +193,16 @@ function loadState() {
       if (!appState.types || !appState.products) appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
     } else {
       appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
-      saveState();
+      saveLocalState();
     }
   } catch (e) {
     appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
   }
+  updateCloudBadge(false);
+  renderCurrentTab();
 }
 
-function saveState() {
+function saveLocalState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
 }
 
@@ -228,7 +295,7 @@ function renderStatusBadge(status, dDayText) {
   `;
 }
 
-// ==================== 4. UI Rendering ====================
+// ==================== 4. UI Navigation & Rendering ====================
 let currentTab = 'dashboard';
 let dashboardFilter = 'all';
 
@@ -241,13 +308,17 @@ function switchTab(tabId) {
     view.classList.toggle('hidden', view.id !== `view-${tabId}`);
   });
 
-  if (tabId === 'dashboard') renderDashboard();
-  else if (tabId === 'products') renderProducts();
-  else if (tabId === 'types') renderTypes();
-  else if (tabId === 'health') renderHealthCerts();
-  else if (tabId === 'certs') renderCertificates();
-  else if (tabId === 'settings') renderSettings();
+  renderCurrentTab();
+  lucide.createIcons();
+}
 
+function renderCurrentTab() {
+  if (currentTab === 'dashboard') renderDashboard();
+  else if (currentTab === 'products') renderProducts();
+  else if (currentTab === 'types') renderTypes();
+  else if (currentTab === 'health') renderHealthCerts();
+  else if (currentTab === 'certs') renderCertificates();
+  else if (currentTab === 'settings') renderSettings();
   lucide.createIcons();
 }
 
@@ -444,8 +515,8 @@ function renderHealthCerts() {
       <td class="py-3 px-4">${c.issuedAt || '-'}</td>
       <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">${c.expiresAt || '-'}</td>
       <td class="py-3 px-4">
-        ${c.hasFile 
-          ? `<button onclick="downloadHealthFile(${c.id})" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"><i data-lucide="paperclip" class="w-3.5 h-3.5"></i><span>사본 열람</span></button>`
+        ${c.fileUrl || c.hasFile 
+          ? `<a href="${c.fileUrl || '#'}" target="_blank" onclick="${!c.fileUrl ? `downloadHealthFile(${c.id}); return false;` : ''}" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"><i data-lucide="paperclip" class="w-3.5 h-3.5"></i><span>사본 열람</span></a>`
           : `<span class="text-slate-400 text-xs">미등록</span>`
         }
       </td>
@@ -487,10 +558,10 @@ function renderCertificates() {
         <td class="py-3 px-4 text-slate-400 text-xs">${c.createdAt ? c.createdAt.slice(0, 10) : '-'}</td>
         <td class="py-3 px-4 text-right action-column">
           <div class="flex items-center justify-end gap-2">
-            <button onclick="downloadCertFile(${c.id})" class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300">
-              <i data-lucide="download" class="w-3.5 h-3.5"></i>
-              <span>다운로드</span>
-            </button>
+            ${c.fileUrl 
+              ? `<a href="${c.fileUrl}" target="_blank" class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300"><i data-lucide="external-link" class="w-3.5 h-3.5"></i><span>열람/다운로드</span></a>`
+              : `<button onclick="downloadCertFile(${c.id})" class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300"><i data-lucide="download" class="w-3.5 h-3.5"></i><span>다운로드</span></button>`
+            }
             <button onclick="deleteCert(${c.id})" class="p-1 text-slate-400 hover:text-red-600">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
@@ -510,7 +581,7 @@ function renderSettings() {
   document.getElementById('setting-health-warning-days').value = appState.settings.healthWarningDays || 30;
 }
 
-// ==================== 5. Modal Operations ====================
+// ==================== 5. Modals & Cloud Mutations ====================
 function openModal(id) {
   document.getElementById(id)?.classList.remove('hidden');
   lucide.createIcons();
@@ -559,7 +630,7 @@ function openEditProductModal(id) {
   openModal('modal-product');
 }
 
-function handleSaveProduct(e) {
+async function handleSaveProduct(e) {
   e.preventDefault();
   const id = document.getElementById('prod-id').value;
   const name = document.getElementById('prod-name').value.trim();
@@ -573,56 +644,84 @@ function handleSaveProduct(e) {
     return;
   }
 
-  if (id) {
-    const p = appState.products.find(x => x.id === Number(id));
-    if (p) {
-      p.name = name;
-      p.typeId = typeId;
-      p.intervalMonths = intervalMonths;
-      p.lastManufactureDate = lastManufactureDate;
-      p.memo = memo;
-      showToast('제품 정보가 수정되었습니다.', 'success');
+  if (supabaseClient && isCloudConnected) {
+    try {
+      if (id) {
+        await supabaseClient.from('quality_products').update({
+          name,
+          type_id: typeId,
+          interval_months: intervalMonths,
+          last_manufacture_date: lastManufactureDate,
+          memo
+        }).eq('id', Number(id));
+        showToast('클라우드에 제품 정보가 수정되었습니다.', 'success');
+      } else {
+        const { data: newProd } = await supabaseClient.from('quality_products').insert([{
+          name,
+          type_id: typeId,
+          interval_months: intervalMonths,
+          last_manufacture_date: lastManufactureDate,
+          memo,
+          production_status: 'active',
+          alert_status: 'active'
+        }]).select();
+
+        if (newProd && newProd.length > 0) {
+          await supabaseClient.from('quality_history').insert([{
+            product_id: newProd[0].id,
+            product_name: name,
+            manufacture_date: lastManufactureDate,
+            previous_date: null,
+            memo: '초기 제품 등록'
+          }]);
+        }
+        showToast('클라우드에 새 제품이 등록되었습니다.', 'success');
+      }
+      await loadCloudState();
+    } catch (err) {
+      console.error(err);
+      showToast('클라우드 저장 실패, 로컬에 저장합니다.', 'error');
     }
   } else {
-    const newId = appState.products.length ? Math.max(...appState.products.map(p => p.id)) + 1 : 1;
-    appState.products.push({
-      id: newId,
-      name,
-      typeId,
-      intervalMonths,
-      lastManufactureDate,
-      memo,
-      productionStatus: 'active',
-      alertStatus: 'active'
-    });
-    appState.history.push({
-      id: Date.now(),
-      productId: newId,
-      productName: name,
-      manufactureDate: lastManufactureDate,
-      previousDate: null,
-      memo: '초기 제품 등록',
-      createdAt: new Date().toISOString()
-    });
-    showToast('새 제품이 등록되었습니다.', 'success');
+    // 로컬 폴백
+    if (id) {
+      const p = appState.products.find(x => x.id === Number(id));
+      if (p) {
+        p.name = name;
+        p.typeId = typeId;
+        p.intervalMonths = intervalMonths;
+        p.lastManufactureDate = lastManufactureDate;
+        p.memo = memo;
+      }
+    } else {
+      const newId = appState.products.length ? Math.max(...appState.products.map(p => p.id)) + 1 : 1;
+      appState.products.push({ id: newId, name, typeId, intervalMonths, lastManufactureDate, memo, productionStatus: 'active', alertStatus: 'active' });
+    }
+    saveLocalState();
+    renderCurrentTab();
   }
 
-  saveState();
   closeModal('modal-product');
-  if (currentTab === 'dashboard') renderDashboard();
-  else if (currentTab === 'products') renderProducts();
 }
 
-function deleteProduct(id) {
+async function deleteProduct(id) {
   const p = appState.products.find(x => x.id === id);
   if (!p) return;
   if (!confirm(`'${p.name}' 제품을 삭제하시겠습니까?`)) return;
 
-  appState.products = appState.products.filter(x => x.id !== id);
-  saveState();
-  showToast('제품이 삭제되었습니다.', 'info');
-  if (currentTab === 'dashboard') renderDashboard();
-  else if (currentTab === 'products') renderProducts();
+  if (supabaseClient && isCloudConnected) {
+    try {
+      await supabaseClient.from('quality_products').delete().eq('id', id);
+      showToast('클라우드에서 제품이 삭제되었습니다.', 'info');
+      await loadCloudState();
+    } catch (e) {
+      console.error(e);
+    }
+  } else {
+    appState.products = appState.products.filter(x => x.id !== id);
+    saveLocalState();
+    renderCurrentTab();
+  }
 }
 
 function openQuickRenewModal(id) {
@@ -638,7 +737,7 @@ function openQuickRenewModal(id) {
   openModal('modal-quick-renew');
 }
 
-function handleQuickRenew(e) {
+async function handleQuickRenew(e) {
   e.preventDefault();
   const id = Number(document.getElementById('renew-prod-id').value);
   const newDate = document.getElementById('renew-date').value;
@@ -648,22 +747,38 @@ function handleQuickRenew(e) {
   if (!p) return;
 
   const prevDate = p.lastManufactureDate;
-  p.lastManufactureDate = newDate;
 
-  appState.history.push({
-    id: Date.now(),
-    productId: p.id,
-    productName: p.name,
-    manufactureDate: newDate,
-    previousDate: prevDate,
-    memo: memo || '검사 완료 갱신',
-    createdAt: new Date().toISOString()
-  });
+  if (supabaseClient && isCloudConnected) {
+    try {
+      await supabaseClient.from('quality_products').update({ last_manufacture_date: newDate }).eq('id', id);
+      await supabaseClient.from('quality_history').insert([{
+        product_id: p.id,
+        product_name: p.name,
+        manufacture_date: newDate,
+        previous_date: prevDate,
+        memo: memo || '검사 완료 갱신'
+      }]);
+      showToast(`${p.name} 검사 일정이 클라우드에 갱신되었습니다.`, 'success');
+      await loadCloudState();
+    } catch (err) {
+      console.error(err);
+    }
+  } else {
+    p.lastManufactureDate = newDate;
+    appState.history.push({
+      id: Date.now(),
+      productId: p.id,
+      productName: p.name,
+      manufactureDate: newDate,
+      previousDate: prevDate,
+      memo: memo || '검사 완료 갱신',
+      createdAt: new Date().toISOString()
+    });
+    saveLocalState();
+    renderCurrentTab();
+  }
 
-  saveState();
   closeModal('modal-quick-renew');
-  showToast(`${p.name} 검사 일정이 갱신되었습니다.`, 'success');
-  renderDashboard();
 }
 
 function viewHistory(productId) {
@@ -726,43 +841,53 @@ function openStopStatusModal(productId, actionType) {
   openModal('modal-stop');
 }
 
-function handleSaveStopStatus(e) {
+async function handleSaveStopStatus(e) {
   e.preventDefault();
   const id = Number(document.getElementById('stop-prod-id').value);
   const actionType = document.getElementById('stop-action-type').value;
   const p = appState.products.find(x => x.id === id);
   if (!p) return;
 
-  if (actionType === 'stop') {
-    p.productionStatus = 'stopped';
-    p.stopReason = document.getElementById('stop-reason-input').value.trim() || '일시 생산 중단';
-    showToast(`${p.name} 생산이 중단 처리되었습니다.`, 'info');
-  } else {
-    const newDate = document.getElementById('resume-date-input').value;
-    if (!newDate) {
-      showToast('재생산 제조일자를 입력하세요.', 'error');
-      return;
+  const isStop = actionType === 'stop';
+  const stopReason = isStop ? (document.getElementById('stop-reason-input').value.trim() || '일시 생산 중단') : '';
+  const newDate = isStop ? p.lastManufactureDate : document.getElementById('resume-date-input').value;
+
+  if (supabaseClient && isCloudConnected) {
+    try {
+      await supabaseClient.from('quality_products').update({
+        production_status: isStop ? 'stopped' : 'active',
+        stop_reason: stopReason,
+        last_manufacture_date: newDate
+      }).eq('id', id);
+      showToast(`${p.name} 생산 상태가 변경되었습니다.`, 'info');
+      await loadCloudState();
+    } catch (err) {
+      console.error(err);
     }
-    p.productionStatus = 'active';
+  } else {
+    p.productionStatus = isStop ? 'stopped' : 'active';
+    p.stopReason = stopReason;
     p.lastManufactureDate = newDate;
-    p.stopReason = '';
-    showToast(`${p.name} 생산이 재개되었습니다.`, 'success');
+    saveLocalState();
+    renderCurrentTab();
   }
 
-  saveState();
   closeModal('modal-stop');
-  if (currentTab === 'dashboard') renderDashboard();
-  else if (currentTab === 'products') renderProducts();
 }
 
-function toggleAlertPause(productId) {
+async function toggleAlertPause(productId) {
   const p = appState.products.find(x => x.id === productId);
   if (!p) return;
-  p.alertStatus = p.alertStatus === 'paused' ? 'active' : 'paused';
-  saveState();
-  showToast(p.alertStatus === 'paused' ? '알림이 일시 중단되었습니다.' : '알림이 다시 활성화되었습니다.', 'info');
-  if (currentTab === 'dashboard') renderDashboard();
-  else if (currentTab === 'products') renderProducts();
+  const newStatus = p.alertStatus === 'paused' ? 'active' : 'paused';
+
+  if (supabaseClient && isCloudConnected) {
+    await supabaseClient.from('quality_products').update({ alert_status: newStatus }).eq('id', productId);
+    await loadCloudState();
+  } else {
+    p.alertStatus = newStatus;
+    saveLocalState();
+    renderCurrentTab();
+  }
 }
 
 function openAddTypeModal() {
@@ -785,7 +910,7 @@ function openEditTypeModal(id) {
   openModal('modal-type');
 }
 
-function handleSaveType(e) {
+async function handleSaveType(e) {
   e.preventDefault();
   const id = document.getElementById('type-id').value;
   const name = document.getElementById('type-name').value.trim();
@@ -797,36 +922,49 @@ function handleSaveType(e) {
     return;
   }
 
-  if (id) {
-    const t = appState.types.find(x => x.id === Number(id));
-    if (t) {
-      t.name = name;
-      t.intervalMonths = intervalMonths;
-      t.testItems = testItems;
-      showToast('식품유형이 수정되었습니다.', 'success');
+  if (supabaseClient && isCloudConnected) {
+    try {
+      if (id) {
+        await supabaseClient.from('quality_types').update({ name, interval_months: intervalMonths, test_items: testItems }).eq('id', Number(id));
+      } else {
+        await supabaseClient.from('quality_types').insert([{ name, interval_months: intervalMonths, test_items: testItems }]);
+      }
+      showToast('식품유형이 클라우드에 저장되었습니다.', 'success');
+      await loadCloudState();
+    } catch (err) {
+      console.error(err);
     }
   } else {
-    const newId = appState.types.length ? Math.max(...appState.types.map(t => t.id)) + 1 : 1;
-    appState.types.push({ id: newId, name, intervalMonths, testItems });
-    showToast('새 식품유형이 등록되었습니다.', 'success');
+    if (id) {
+      const t = appState.types.find(x => x.id === Number(id));
+      if (t) { t.name = name; t.intervalMonths = intervalMonths; t.testItems = testItems; }
+    } else {
+      const newId = appState.types.length ? Math.max(...appState.types.map(t => t.id)) + 1 : 1;
+      appState.types.push({ id: newId, name, intervalMonths, testItems });
+    }
+    saveLocalState();
+    renderCurrentTab();
   }
 
-  saveState();
   closeModal('modal-type');
-  renderTypes();
 }
 
-function deleteType(id) {
+async function deleteType(id) {
   const inUse = appState.products.some(p => p.typeId === id);
   if (inUse) {
     showToast('해당 식품유형에 속한 제품이 있어 삭제할 수 없습니다.', 'error');
     return;
   }
   if (!confirm('이 식품유형을 삭제하시겠습니까?')) return;
-  appState.types = appState.types.filter(t => t.id !== id);
-  saveState();
-  showToast('식품유형이 삭제되었습니다.', 'info');
-  renderTypes();
+
+  if (supabaseClient && isCloudConnected) {
+    await supabaseClient.from('quality_types').delete().eq('id', id);
+    await loadCloudState();
+  } else {
+    appState.types = appState.types.filter(t => t.id !== id);
+    saveLocalState();
+    renderCurrentTab();
+  }
 }
 
 function openAddHealthCertModal() {
@@ -864,6 +1002,28 @@ function openEditHealthCertModal(id) {
   openModal('modal-health');
 }
 
+async function uploadFileToCloud(file, folder = 'health') {
+  if (!supabaseClient) return { url: '', name: file.name };
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${folder}_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const filePath = `${folder}/${fileName}`;
+
+    const { error: uploadError } = await supabaseClient.storage.from('quality-files').upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: true
+    });
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabaseClient.storage.from('quality-files').getPublicUrl(filePath);
+    return { url: publicUrl, name: file.name };
+  } catch (err) {
+    console.error('파일 클라우드 업로드 실패:', err);
+    return { url: '', name: file.name };
+  }
+}
+
 async function handleSaveHealthCert(e) {
   e.preventDefault();
   const id = document.getElementById('health-id').value;
@@ -879,71 +1039,97 @@ async function handleSaveHealthCert(e) {
     return;
   }
 
-  let targetId = id ? Number(id) : (appState.healthCerts.length ? Math.max(...appState.healthCerts.map(c => c.id)) + 1 : 1);
-  let hasFile = false;
+  showToast('보건증 정보를 저장하는 중...', 'info');
 
+  let fileUrl = '';
+  let fileName = '';
   if (fileInput.files.length > 0) {
-    const file = fileInput.files[0];
-    await saveFileToDB(`health_${targetId}`, file);
-    hasFile = true;
+    const uploadRes = await uploadFileToCloud(fileInput.files[0], 'health');
+    fileUrl = uploadRes.url;
+    fileName = uploadRes.name;
   }
 
-  if (id) {
-    const c = appState.healthCerts.find(x => x.id === Number(id));
-    if (c) {
-      c.employeeName = employeeName;
-      c.department = department;
-      c.issuedAt = issuedAt;
-      c.expiresAt = expiresAt;
-      c.memo = memo;
-      if (hasFile) c.hasFile = true;
-      showToast('보건증 정보가 저장되었습니다.', 'success');
+  if (supabaseClient && isCloudConnected) {
+    try {
+      if (id) {
+        const updateData = {
+          employee_name: employeeName,
+          department,
+          issued_at: issuedAt,
+          expires_at: expiresAt,
+          memo
+        };
+        if (fileUrl) {
+          updateData.file_url = fileUrl;
+          updateData.file_name = fileName;
+        }
+        await supabaseClient.from('quality_health_certs').update(updateData).eq('id', Number(id));
+      } else {
+        await supabaseClient.from('quality_health_certs').insert([{
+          employee_name: employeeName,
+          department,
+          issued_at: issuedAt,
+          expires_at: expiresAt,
+          warning_days: appState.settings.healthWarningDays || 30,
+          memo,
+          file_url: fileUrl,
+          file_name: fileName,
+          employment_status: 'active',
+          alert_status: 'active'
+        }]);
+      }
+      showToast('보건증 정보가 클라우드에 저장되었습니다.', 'success');
+      await loadCloudState();
+    } catch (err) {
+      console.error(err);
     }
   } else {
-    appState.healthCerts.push({
-      id: targetId,
-      employeeName,
-      department,
-      issuedAt,
-      expiresAt,
-      warningDays: appState.settings.healthWarningDays || 30,
-      memo,
-      hasFile,
-      employmentStatus: 'active',
-      alertStatus: 'active'
-    });
-    showToast('새 보건증이 등록되었습니다.', 'success');
+    if (id) {
+      const c = appState.healthCerts.find(x => x.id === Number(id));
+      if (c) {
+        c.employeeName = employeeName;
+        c.department = department;
+        c.issuedAt = issuedAt;
+        c.expiresAt = expiresAt;
+        c.memo = memo;
+        if (fileName) { c.fileName = fileName; c.hasFile = true; }
+      }
+    } else {
+      const targetId = appState.healthCerts.length ? Math.max(...appState.healthCerts.map(c => c.id)) + 1 : 1;
+      appState.healthCerts.push({
+        id: targetId,
+        employeeName,
+        department,
+        issuedAt,
+        expiresAt,
+        warningDays: appState.settings.healthWarningDays || 30,
+        memo,
+        hasFile: !!fileName,
+        fileName,
+        employmentStatus: 'active',
+        alertStatus: 'active'
+      });
+    }
+    saveLocalState();
+    renderCurrentTab();
   }
 
-  saveState();
   closeModal('modal-health');
-  renderHealthCerts();
 }
 
-async function downloadHealthFile(id) {
-  const file = await getFileFromDB(`health_${id}`);
-  if (!file) {
-    showToast('저장된 보건증 파일이 없습니다.', 'error');
-    return;
-  }
-  const url = URL.createObjectURL(file);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = file.name || `보건증_${id}.pdf`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function deleteHealthCert(id) {
+async function deleteHealthCert(id) {
   const c = appState.healthCerts.find(x => x.id === id);
   if (!c) return;
   if (!confirm(`'${c.employeeName}' 담당자의 보건증 기록을 삭제하시겠습니까?`)) return;
 
-  appState.healthCerts = appState.healthCerts.filter(x => x.id !== id);
-  deleteFileFromDB(`health_${id}`);
-  saveState();
-  showToast('보건증 기록이 삭제되었습니다.', 'info');
-  renderHealthCerts();
+  if (supabaseClient && isCloudConnected) {
+    await supabaseClient.from('quality_health_certs').delete().eq('id', id);
+    await loadCloudState();
+  } else {
+    appState.healthCerts = appState.healthCerts.filter(x => x.id !== id);
+    saveLocalState();
+    renderCurrentTab();
+  }
 }
 
 function openUploadCertModal() {
@@ -974,54 +1160,60 @@ async function handleSaveCert(e) {
     return;
   }
 
+  showToast('성적서 파일을 클라우드에 업로드하는 중...', 'info');
   const file = fileInput.files[0];
-  const newId = appState.certificates.length ? Math.max(...appState.certificates.map(c => c.id)) + 1 : 1;
+  const uploadRes = await uploadFileToCloud(file, 'certs');
 
-  await saveFileToDB(`cert_${newId}`, file);
-
-  appState.certificates.push({
-    id: newId,
-    certNumber,
-    productId: productId ? Number(productId) : null,
-    inspectionDate,
-    fileName: file.name,
-    fileSize: file.size,
-    memo,
-    createdAt: new Date().toISOString()
-  });
-
-  appState.settings.certSequence = (appState.settings.certSequence || 1) + 1;
-  saveState();
-  closeModal('modal-upload-cert');
-  showToast('성적서가 안전하게 보관되었습니다.', 'success');
-  renderCertificates();
-}
-
-async function downloadCertFile(id) {
-  const c = appState.certificates.find(x => x.id === id);
-  const file = await getFileFromDB(`cert_${id}`);
-  if (!file) {
-    showToast('저장된 성적서 파일을 찾을 수 없습니다.', 'error');
-    return;
+  if (supabaseClient && isCloudConnected) {
+    try {
+      await supabaseClient.from('quality_certificates').insert([{
+        cert_number: certNumber,
+        product_id: productId ? Number(productId) : null,
+        inspection_date: inspectionDate,
+        file_url: uploadRes.url,
+        file_name: file.name,
+        file_size: file.size,
+        memo
+      }]);
+      appState.settings.certSequence = (appState.settings.certSequence || 1) + 1;
+      showToast('성적서가 전 팀원 클라우드에 공유되었습니다! 🎉', 'success');
+      await loadCloudState();
+    } catch (err) {
+      console.error(err);
+    }
+  } else {
+    const newId = appState.certificates.length ? Math.max(...appState.certificates.map(c => c.id)) + 1 : 1;
+    appState.certificates.push({
+      id: newId,
+      certNumber,
+      productId: productId ? Number(productId) : null,
+      inspectionDate,
+      fileName: file.name,
+      fileSize: file.size,
+      memo,
+      createdAt: new Date().toISOString()
+    });
+    appState.settings.certSequence = (appState.settings.certSequence || 1) + 1;
+    saveLocalState();
+    renderCurrentTab();
   }
-  const url = URL.createObjectURL(file);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = c ? c.fileName : '성적서.pdf';
-  a.click();
-  URL.revokeObjectURL(url);
+
+  closeModal('modal-upload-cert');
 }
 
-function deleteCert(id) {
+async function deleteCert(id) {
   const c = appState.certificates.find(x => x.id === id);
   if (!c) return;
   if (!confirm(`성적서 '${c.certNumber || c.fileName}'을(를) 삭제하시겠습니까?`)) return;
 
-  appState.certificates = appState.certificates.filter(x => x.id !== id);
-  deleteFileFromDB(`cert_${id}`);
-  saveState();
-  showToast('성적서가 삭제되었습니다.', 'info');
-  renderCertificates();
+  if (supabaseClient && isCloudConnected) {
+    await supabaseClient.from('quality_certificates').delete().eq('id', id);
+    await loadCloudState();
+  } else {
+    appState.certificates = appState.certificates.filter(x => x.id !== id);
+    saveLocalState();
+    renderCurrentTab();
+  }
 }
 
 // ==================== 6. Excel, Backup & Telegram ====================
@@ -1047,6 +1239,7 @@ function exportScheduleExcel() {
     '소속부서': c.department || '',
     '발급일자': c.issuedAt,
     '만료일자': c.expiresAt,
+    '성적서파일': c.fileUrl || c.fileName || '미등록',
     '재직상태': c.employmentStatus === 'inactive' ? '퇴사/제외' : '재직중',
     '메모': c.memo || ''
   }));
@@ -1068,7 +1261,7 @@ function handleExcelUpload(e) {
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = function(evt) {
+  reader.onload = async function(evt) {
     try {
       const data = new Uint8Array(evt.target.result);
       const workbook = XLSX.read(data, { type: 'array' });
@@ -1076,39 +1269,59 @@ function handleExcelUpload(e) {
       const rows = XLSX.utils.sheet_to_json(firstSheet);
 
       let addedCount = 0;
-      rows.forEach(r => {
+      for (const r of rows) {
         const name = r['제품명'] || r['품목명'] || r['name'];
-        if (!name) return;
+        if (!name) continue;
 
         const typeName = r['식품유형'] || r['유형'] || '기타가공품';
         let type = appState.types.find(t => t.name === typeName);
         if (!type) {
-          const newTypeId = appState.types.length ? Math.max(...appState.types.map(t => t.id)) + 1 : 1;
-          type = { id: newTypeId, name: typeName, intervalMonths: Number(r['검사주기'] || 2), testItems: '' };
-          appState.types.push(type);
+          if (supabaseClient && isCloudConnected) {
+            const { data: newType } = await supabaseClient.from('quality_types').insert([{
+              name: typeName,
+              interval_months: Number(r['검사주기'] || 2)
+            }]).select();
+            if (newType && newType.length > 0) type = { id: newType[0].id, name: typeName, intervalMonths: newType[0].interval_months };
+          } else {
+            const newTypeId = appState.types.length ? Math.max(...appState.types.map(t => t.id)) + 1 : 1;
+            type = { id: newTypeId, name: typeName, intervalMonths: Number(r['검사주기'] || 2), testItems: '' };
+            appState.types.push(type);
+          }
         }
 
         const lastDate = r['최근제조일'] || r['제조일'] || r['검사일'] || getTodayKstStr();
-        const intervalMonths = Number(r['검사주기(개월)'] || r['검사주기'] || type.intervalMonths || 2);
+        const intervalMonths = Number(r['검사주기(개월)'] || r['검사주기'] || type?.intervalMonths || 2);
         const memo = r['비고'] || r['메모'] || '';
 
-        const newId = appState.products.length ? Math.max(...appState.products.map(p => p.id)) + 1 : 1;
-        appState.products.push({
-          id: newId,
-          name,
-          typeId: type.id,
-          intervalMonths,
-          lastManufactureDate: String(lastDate).slice(0, 10),
-          memo,
-          productionStatus: 'active',
-          alertStatus: 'active'
-        });
+        if (supabaseClient && isCloudConnected) {
+          await supabaseClient.from('quality_products').insert([{
+            name,
+            type_id: type ? type.id : null,
+            interval_months: intervalMonths,
+            last_manufacture_date: String(lastDate).slice(0, 10),
+            memo,
+            production_status: 'active',
+            alert_status: 'active'
+          }]);
+        } else {
+          const newId = appState.products.length ? Math.max(...appState.products.map(p => p.id)) + 1 : 1;
+          appState.products.push({
+            id: newId,
+            name,
+            typeId: type ? type.id : 1,
+            intervalMonths,
+            lastManufactureDate: String(lastDate).slice(0, 10),
+            memo,
+            productionStatus: 'active',
+            alertStatus: 'active'
+          });
+        }
         addedCount++;
-      });
+      }
 
-      saveState();
       showToast(`${addedCount}개 제품이 엑셀에서 등록되었습니다.`, 'success');
-      renderDashboard();
+      if (supabaseClient && isCloudConnected) await loadCloudState();
+      else { saveLocalState(); renderCurrentTab(); }
     } catch (err) {
       console.error(err);
       showToast('엑셀 파일을 읽는 중 오류가 발생했습니다.', 'error');
@@ -1135,15 +1348,13 @@ function handleRestoreJSON(e) {
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = function(evt) {
+  reader.onload = async function(evt) {
     try {
       const parsed = JSON.parse(evt.target.result);
-      if (!parsed.products || !parsed.types) {
-        throw new Error('유효하지 않은 백업 파일 형식');
-      }
+      if (!parsed.products || !parsed.types) throw new Error('유효하지 않은 백업 파일 형식');
       if (!confirm('백업 데이터로 복원하시겠습니까? 현재 데이터가 대체됩니다.')) return;
       appState = parsed;
-      saveState();
+      saveLocalState();
       showToast('백업 데이터가 성공적으로 복원되었습니다.', 'success');
       switchTab('dashboard');
     } catch (err) {
@@ -1157,7 +1368,7 @@ function handleRestoreJSON(e) {
 function loadSampleData(confirmUser) {
   if (confirmUser && !confirm('기본 샘플 데이터를 불러오시겠습니까?')) return;
   appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
-  saveState();
+  saveLocalState();
   showToast('기본 샘플 데이터가 로드되었습니다.', 'success');
   switchTab('dashboard');
 }
@@ -1165,7 +1376,7 @@ function loadSampleData(confirmUser) {
 function resetAllData() {
   if (!confirm('경고: 모든 제품, 검사 이력, 보건증 데이터가 삭제됩니다. 계속하시겠습니까?')) return;
   appState = { types: [], products: [], history: [], healthCerts: [], certificates: [], settings: DEFAULT_DATA.settings };
-  saveState();
+  saveLocalState();
   showToast('모든 데이터가 초기화되었습니다.', 'info');
   switchTab('dashboard');
 }
@@ -1176,7 +1387,7 @@ function saveTelegramSettings() {
   const chatId = document.getElementById('setting-tg-chatid').value.trim();
   appState.settings.telegramBotToken = token;
   appState.settings.telegramChatId = chatId;
-  saveState();
+  saveLocalState();
   showToast('텔레그램 알림 설정이 저장되었습니다.', 'success');
 }
 
@@ -1185,7 +1396,7 @@ function saveNotificationDays() {
   const hwDays = Number(document.getElementById('setting-health-warning-days').value) || 30;
   appState.settings.warningDays = wDays;
   appState.settings.healthWarningDays = hwDays;
-  saveState();
+  saveLocalState();
   showToast('알림 기준일이 저장되었습니다.', 'success');
 }
 
@@ -1225,7 +1436,7 @@ async function testTelegramNotification() {
     }
   } catch (err) {
     console.error(err);
-    showToast('텔레그램 API 요청 실패: 인터넷 연결 및 브라우저 CORS 상태를 확인하세요.', 'error');
+    showToast('텔레그램 API 요청 실패: 인터넷 연결 상태를 확인하세요.', 'error');
   }
 }
 
@@ -1294,8 +1505,9 @@ function escapeHtml(str) {
 }
 
 // Initial Boot
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   initTheme();
-  loadState();
+  await loadCloudState(false);
+  initRealtimeSubscription();
   switchTab('dashboard');
 });

@@ -19,6 +19,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="styles.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75' fill='%232563eb'>🧪</text></svg>">
 </head>
@@ -34,9 +35,12 @@
           <div>
             <div class="flex items-center gap-2">
               <h1 class="font-bold text-lg text-slate-900 dark:text-white tracking-tight">코엔에프 자가품질검사 스케줄러</h1>
-              <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">v2.5 정적웹</span>
+              <span id="cloud-status-badge" class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>실시간 클라우드</span>
+              </span>
             </div>
-            <p class="text-xs text-slate-500 dark:text-slate-400">식품위생법 검사주기 및 보건증 통합 관리 시스템</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">전 팀원 실시간 동기화 & 보건증·성적서 통합 관리</p>
           </div>
         </div>
 
