@@ -12,7 +12,7 @@ Vercel에 5분 안에 배포하는 방법입니다. 팀원들이 웹사이트 �
 ## 2단계: 저장소 연결 및 배포
 
 1. Vercel 대시보드에서 "New Project" 클릭
-2. GitHub 저장소 선택: `koenf-quality-scheduler`
+2. GitHub 저장소 선택: `conf-quality-scheduler`
 3. "Import" 클릭
 
 ## 3단계: 환경변수 설정

@@ -165,7 +165,7 @@ async function run() {
     }
   });
 
-  const appUrl = 'https://gohwansok-max.github.io/koenf-quality-scheduler/';
+  const appUrl = 'https://gohwansok-max.github.io/conf-quality-scheduler/';
   const certificateRegisterUrl = `${appUrl}#certs-register`;
   const totalActionCount = overdueProducts.length + urgentProducts.length + missingCertificateProducts.length + warningHealthCerts.length;
 

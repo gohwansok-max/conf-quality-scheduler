@@ -85,7 +85,7 @@
 ### 1단계: 프로젝트 준비
 ```bash
 git clone <repository>
-cd koenf-quality-scheduler
+cd conf-quality-scheduler
 corepack pnpm install
 ```
 
