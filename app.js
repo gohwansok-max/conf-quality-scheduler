@@ -2,7 +2,32 @@
  * (주)코엔에프 자가품질검사 스케줄러 - Supabase 실시간 클라우드 연동 버전
  */
 
-// ==================== 1. Supabase Client Setup ====================
+// ==================== 1. Runtime & Supabase Client Setup ====================
+const CONF_RUNTIME_CONFIG = window.CONF_RUNTIME_CONFIG || {};
+const SERVER_API_BASE_URL = String(CONF_RUNTIME_CONFIG.serverApiBaseUrl || '').trim().replace(/\/$/, '');
+
+function getServerApiUrl(path) {
+  if (!SERVER_API_BASE_URL) return '';
+  return `${SERVER_API_BASE_URL}${String(path || '').startsWith('/') ? '' : '/'}${path || ''}`;
+}
+
+function getHealthCertificateDownloadUrl(certificate) {
+  if (certificate?.fileUrl) return certificate.fileUrl;
+  if (!certificate?.id) return '';
+  return getServerApiUrl(`/api/health-certificates/${encodeURIComponent(certificate.id)}/download`);
+}
+
+function downloadHealthFile(certificateId) {
+  const certificate = appState.healthCerts.find(item => Number(item.id) === Number(certificateId));
+  const url = getHealthCertificateDownloadUrl(certificate);
+  if (url) {
+    window.open(url, '_blank', 'noopener');
+    return;
+  }
+  showToast('보관된 PDF가 없거나 서버 PDF 다운로드 주소가 설정되지 않았습니다.', 'error');
+}
+
+// ==================== 2. Supabase Client Setup ====================
 const SUPABASE_URL = 'https://hooaeqywrdihninxnvtb.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_3iDGX80MZlMhAPCthcBKDA_TDUHDwhz';
 
@@ -808,7 +833,9 @@ function renderHealthCerts() {
     return;
   }
 
-  tbody.innerHTML = computedHealth.map(c => `
+  tbody.innerHTML = computedHealth.map(c => {
+    const healthFileUrl = getHealthCertificateDownloadUrl(c);
+    return `
     <tr class="table-row-hover transition">
       <td class="py-3 px-4">${renderStatusBadge(c.status, formatDDay(c.dDay))}</td>
       <td class="py-3 px-4 font-bold text-slate-900 dark:text-white"><span class="table-text-one-line" title="${escapeHtml(c.employeeName)}">${escapeHtml(c.employeeName)}</span></td>
@@ -817,7 +844,7 @@ function renderHealthCerts() {
       <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">${c.expiresAt || '-'}</td>
       <td class="py-3 px-4">
         ${c.fileUrl || c.hasFile 
-          ? `<a href="${c.fileUrl || '#'}" target="_blank" onclick="${!c.fileUrl ? `downloadHealthFile(${c.id}); return false;` : ''}" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"><i data-lucide="paperclip" class="w-3.5 h-3.5"></i><span>사본 열람</span></a>`
+          ? `<a href="${healthFileUrl || '#'}" target="_blank" onclick="${!healthFileUrl ? `downloadHealthFile(${c.id}); return false;` : ''}" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"><i data-lucide="paperclip" class="w-3.5 h-3.5"></i><span>사본 열람</span></a>`
           : `<span class="text-slate-400 text-xs">미등록</span>`
         }
       </td>
@@ -833,7 +860,8 @@ function renderHealthCerts() {
         </div>
       </td>
     </tr>
-  `).join('');
+    `;
+  }).join('');
 
   lucide.createIcons();
 }
