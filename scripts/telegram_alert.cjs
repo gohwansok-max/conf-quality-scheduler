@@ -7,13 +7,18 @@ const path = require('path');
 
 // 1. 환경변수 확인
 const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
-const CHAT_ID = (process.env.TELEGRAM_CHAT_ID || '').trim();
+const CHAT_IDS = [...new Set(
+  String(process.env.TELEGRAM_CHAT_IDS || process.env.TELEGRAM_CHAT_ID || '')
+    .split(/[\s,;]+/)
+    .map(value => value.trim())
+    .filter(Boolean)
+)];
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://hooaeqywrdihninxnvtb.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_3iDGX80MZlMhAPCthcBKDA_TDUHDwhz';
 const DRY_RUN = process.env.DRY_RUN === 'true';
 
-if ((!BOT_TOKEN || !CHAT_ID) && !DRY_RUN) {
-  console.error('❌ 오류: TELEGRAM_BOT_TOKEN 또는 TELEGRAM_CHAT_ID가 설정되지 않았습니다.');
+if ((!BOT_TOKEN || CHAT_IDS.length === 0) && !DRY_RUN) {
+  console.error('❌ 오류: TELEGRAM_BOT_TOKEN과 TELEGRAM_CHAT_ID 또는 TELEGRAM_CHAT_IDS를 설정하세요.');
   process.exit(1);
 }
 
@@ -230,49 +235,44 @@ async function run() {
     return;
   }
 
-  const postData = JSON.stringify({
-    chat_id: CHAT_ID,
-    text: message,
-    parse_mode: 'HTML',
-    disable_web_page_preview: true,
-    reply_markup: { inline_keyboard: inlineKeyboard }
-  });
-
-  const req = https.request({
-    hostname: 'api.telegram.org',
-    port: 443,
-    path: `/bot${BOT_TOKEN}/sendMessage`,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(postData)
-    }
-  }, (res) => {
-    let body = '';
-    res.on('data', chunk => body += chunk);
-    res.on('end', () => {
-      try {
-        const response = JSON.parse(body);
-        if (response.ok) {
-          console.log('🎉 텔레그램 메시지가 성공적으로 발송되었습니다!');
-        } else {
-          console.error('❌ 텔레그램 API 오류:', response.description);
-          process.exit(1);
-        }
-      } catch (err) {
-        console.error('❌ 응답 파싱 실패:', body);
-        process.exit(1);
-      }
+  const sendMessage = (chatId) => new Promise((resolve, reject) => {
+    const postData = JSON.stringify({
+      chat_id: chatId,
+      text: message,
+      parse_mode: 'HTML',
+      disable_web_page_preview: true,
+      reply_markup: { inline_keyboard: inlineKeyboard }
     });
+    const req = https.request({
+      hostname: 'api.telegram.org', port: 443, path: `/bot${BOT_TOKEN}/sendMessage`, method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) }
+    }, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        try {
+          const response = JSON.parse(body);
+          if (response.ok) resolve(chatId);
+          else reject(new Error(response.description || `HTTP ${res.statusCode}`));
+        } catch {
+          reject(new Error(`응답 파싱 실패: ${body}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.write(postData);
+    req.end();
   });
 
-  req.on('error', (e) => {
-    console.error('❌ 네트워크 오류:', e.message);
+  const results = await Promise.allSettled(CHAT_IDS.map(sendMessage));
+  const failures = results.filter(result => result.status === 'rejected');
+  results.filter(result => result.status === 'fulfilled').forEach(result => {
+    console.log(`🎉 텔레그램 메시지 발송 완료: ${result.value}`);
+  });
+  if (failures.length) {
+    failures.forEach(result => console.error('❌ 텔레그램 API 오류:', result.reason?.message || result.reason));
     process.exit(1);
-  });
-
-  req.write(postData);
-  req.end();
+  }
 }
 
 run();
