@@ -92,6 +92,7 @@ let appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
 let isCloudConnected = false;
 let isSavingHealthCert = false;
 let healthListFilter = 'all';
+const healthManagementPendingIds = new Set();
 
 function getPinnedTelegramSettings() {
   try {
@@ -884,8 +885,13 @@ function renderHealthCerts() {
 
   tbody.innerHTML = filteredHealth.map(c => {
     const healthFileUrl = getHealthCertificateDownloadUrl(c);
-    const alertTitle = c.alertStatus === 'paused' ? '만료 알림 다시 켜기' : '만료 알림 일시중지';
-    const employmentTitle = c.employmentStatus === 'inactive' ? '재직 대상으로 복원' : '재직 대상에서 제외';
+    const isManagementPending = healthManagementPendingIds.has(Number(c.id));
+    const alertPaused = c.alertStatus === 'paused';
+    const employmentInactive = c.employmentStatus === 'inactive';
+    const alertTitle = alertPaused ? '만료 알림 다시 켜기' : '만료 알림 일시중지';
+    const employmentTitle = employmentInactive ? '재직 대상으로 복원' : '퇴직·제외 처리';
+    const pendingAttribute = isManagementPending ? 'disabled aria-busy="true"' : '';
+    const pendingClass = isManagementPending ? 'opacity-50 cursor-wait' : '';
     return `
     <tr class="table-row-hover transition">
       <td class="py-3 px-4">${renderStatusBadge(c.status, formatDDay(c.dDay))}</td>
@@ -902,11 +908,11 @@ function renderHealthCerts() {
       <td class="py-3 px-4 text-slate-500 text-xs"><span class="table-text-two-lines" title="${escapeHtml(c.memo || '-')}">${escapeHtml(c.memo || '-')}</span></td>
       <td class="py-3 px-4 text-right action-column">
         <div class="flex items-center justify-end gap-1.5">
-          <button onclick="toggleHealthAlertStatus(${c.id})" class="p-1.5 text-slate-400 hover:text-amber-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="${alertTitle}">
-            <i data-lucide="${c.alertStatus === 'paused' ? 'bell-ring' : 'bell-off'}" class="w-4 h-4"></i>
+          <button type="button" onclick="toggleHealthAlertStatus(${c.id})" ${pendingAttribute} class="p-1.5 rounded-md ${alertPaused ? 'text-amber-600 bg-amber-50 dark:bg-amber-950/40' : 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40'} hover:bg-slate-100 dark:hover:bg-slate-800 ${pendingClass}" title="${alertTitle}" aria-label="${alertTitle}">
+            <i data-lucide="${alertPaused ? 'bell-off' : 'bell-ring'}" class="w-4 h-4"></i><span class="sr-only">${alertPaused ? '알림 중지됨' : '알림 켜짐'}</span>
           </button>
-          <button onclick="toggleHealthEmploymentStatus(${c.id})" class="p-1.5 text-slate-400 hover:text-purple-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="${employmentTitle}">
-            <i data-lucide="${c.employmentStatus === 'inactive' ? 'user-round-check' : 'user-round-x'}" class="w-4 h-4"></i>
+          <button type="button" onclick="toggleHealthEmploymentStatus(${c.id})" ${pendingAttribute} class="p-1.5 rounded-md ${employmentInactive ? 'text-red-600 bg-red-50 dark:bg-red-950/40' : 'text-blue-600 bg-blue-50 dark:bg-blue-950/40'} hover:bg-slate-100 dark:hover:bg-slate-800 ${pendingClass}" title="${employmentTitle}" aria-label="${employmentTitle}">
+            <i data-lucide="${employmentInactive ? 'user-round-x' : 'user-round-check'}" class="w-4 h-4"></i><span class="sr-only">${employmentInactive ? '퇴직·제외' : '재직'}</span>
           </button>
           <button onclick="openEditHealthCertModal(${c.id})" class="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="수정/갱신">
             <i data-lucide="pencil" class="w-4 h-4"></i>
@@ -1836,6 +1842,51 @@ function exportScheduleExcel() {
   showToast('엑셀 보고서가 다운로드되었습니다.', 'success');
 }
 
+function downloadHealthExcelTemplate() {
+  if (!window.XLSX) {
+    showToast('엑셀 양식 생성 도구를 불러오는 중입니다. 잠시 후 다시 시도하세요.', 'error');
+    return;
+  }
+
+  const inputRows = [
+    ['보건증 일괄 등록 양식'],
+    ['아래 열 제목은 변경하지 말고, 한 사람당 한 줄씩 작성한 뒤 보건증 관리 화면에서 업로드하세요.'],
+    ['이름·검진일은 필수이며, 만료일을 비워두면 검진일 기준 1년 후로 자동 계산됩니다.'],
+    [],
+    ['이름', '부서/직위', '검진일', '만료일', '결과'],
+    ...Array.from({ length: 20 }, () => ['', '', '', '', ''])
+  ];
+  const guideRows = [
+    ['항목', '작성 규칙'],
+    ['이름', '필수 · 예: 홍길동'],
+    ['부서/직위', '선택 · 예: 품질관리팀 / 팀장'],
+    ['검진일', '필수 · 예: 2026-08-26'],
+    ['만료일', '선택 · 비워두면 검진일 기준 1년 후로 자동 계산'],
+    ['결과', '선택 · 예: 적합'],
+    ['업로드', '보건증 관리 화면의 작성 양식 업로드 버튼으로 이 파일을 올리세요.'],
+    ['주의', '열 제목과 순서는 유지하세요. 같은 이름은 발급·만료일을 갱신하고 첨부 파일은 유지합니다.']
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  const inputSheet = XLSX.utils.aoa_to_sheet(inputRows);
+  const guideSheet = XLSX.utils.aoa_to_sheet(guideRows);
+  inputSheet['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 4 } },
+    { s: { r: 2, c: 0 }, e: { r: 2, c: 4 } }
+  ];
+  inputSheet['!cols'] = [{ wch: 16 }, { wch: 24 }, { wch: 15 }, { wch: 15 }, { wch: 14 }];
+  guideSheet['!cols'] = [{ wch: 18 }, { wch: 74 }];
+  inputSheet['!autofilter'] = { ref: 'A5:E25' };
+  inputSheet['A1'].s = { font: { bold: true, sz: 14 }, alignment: { horizontal: 'center' } };
+  inputSheet['A5'].s = { font: { bold: true } };
+
+  XLSX.utils.book_append_sheet(workbook, inputSheet, '보건증 등록 양식');
+  XLSX.utils.book_append_sheet(workbook, guideSheet, '작성 안내');
+  XLSX.writeFile(workbook, '코엔에프_보건증_일괄등록_양식.xlsx');
+  showToast('보건증 일괄 등록 엑셀 양식이 다운로드되었습니다.', 'success');
+}
+
 function handleExcelUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -1970,7 +2021,8 @@ function parseHealthExcelWorkbook(workbook) {
       }
 
       const filled = values.filter(Boolean);
-      if (filled.length === 1 && !headers && !/^보건증|작성자|현재날짜기준/.test(filled[0])) {
+      const isTemplateGuideText = /^(보건증|작성|현재\s*날짜\s*기준|아래\s*열\s*제목|이름·검진일|필수|주의)/.test(filled[0] || '');
+      if (filled.length === 1 && !headers && !isTemplateGuideText) {
         departmentGroup = filled[0];
         return;
       }
@@ -2147,20 +2199,31 @@ async function handleHealthExcelImport(event) {
 
 async function updateHealthManagementState(id, changes) {
   const certificate = appState.healthCerts.find(c => Number(c.id) === Number(id));
-  if (!certificate) return;
+  const certificateId = Number(id);
+  if (!certificate || healthManagementPendingIds.has(certificateId)) return false;
 
-  if (supabaseClient && isCloudConnected) {
-    const response = await supabaseClient.from('quality_health_certs').update(changes).eq('id', Number(id)).select().single();
-    if (response.error || !response.data) throw response.error || new Error('변경 결과를 확인하지 못했습니다.');
-    const saved = mapHealthCertificateRow(response.data);
-    const index = appState.healthCerts.findIndex(c => Number(c.id) === Number(saved.id));
-    if (index >= 0) appState.healthCerts.splice(index, 1, saved);
-  } else {
-    if (Object.prototype.hasOwnProperty.call(changes, 'alert_status')) certificate.alertStatus = changes.alert_status;
-    if (Object.prototype.hasOwnProperty.call(changes, 'employment_status')) certificate.employmentStatus = changes.employment_status;
+  healthManagementPendingIds.add(certificateId);
+  renderHealthCerts();
+  try {
+    if (supabaseClient && isCloudConnected) {
+      const response = await runHealthCloudRequest(
+        () => supabaseClient.from('quality_health_certs').update(changes).eq('id', certificateId).select().single(),
+        '보건증 관리 상태'
+      );
+      if (!response.data) throw new Error('변경 결과를 확인하지 못했습니다.');
+      const saved = mapHealthCertificateRow(response.data);
+      const index = appState.healthCerts.findIndex(c => Number(c.id) === Number(saved.id));
+      if (index >= 0) appState.healthCerts.splice(index, 1, saved);
+    } else {
+      if (Object.prototype.hasOwnProperty.call(changes, 'alert_status')) certificate.alertStatus = changes.alert_status;
+      if (Object.prototype.hasOwnProperty.call(changes, 'employment_status')) certificate.employmentStatus = changes.employment_status;
+    }
+    saveLocalState();
+    return true;
+  } finally {
+    healthManagementPendingIds.delete(certificateId);
+    renderCurrentTab();
   }
-  saveLocalState();
-  renderCurrentTab();
 }
 
 async function toggleHealthAlertStatus(id) {
@@ -2168,7 +2231,8 @@ async function toggleHealthAlertStatus(id) {
   if (!certificate) return;
   try {
     const alertStatus = certificate.alertStatus === 'paused' ? 'active' : 'paused';
-    await updateHealthManagementState(id, { alert_status: alertStatus });
+    const saved = await updateHealthManagementState(id, { alert_status: alertStatus });
+    if (!saved) return;
     showToast(alertStatus === 'paused' ? '이 대상자의 만료 알림을 일시중지했습니다.' : '이 대상자의 만료 알림을 다시 켰습니다.', 'success');
   } catch (error) {
     showToast(`알림 상태 변경에 실패했습니다: ${error?.message || ''}`, 'error');
@@ -2180,8 +2244,14 @@ async function toggleHealthEmploymentStatus(id) {
   if (!certificate) return;
   try {
     const employmentStatus = certificate.employmentStatus === 'inactive' ? 'active' : 'inactive';
-    await updateHealthManagementState(id, { employment_status: employmentStatus });
-    showToast(employmentStatus === 'inactive' ? '재직 대상에서 제외했습니다. 만료 알림도 중단됩니다.' : '재직 대상으로 복원했습니다.', 'success');
+    const changes = employmentStatus === 'inactive'
+      ? { employment_status: 'inactive', alert_status: 'paused' }
+      : { employment_status: 'active' };
+    const saved = await updateHealthManagementState(id, changes);
+    if (!saved) return;
+    showToast(employmentStatus === 'inactive'
+      ? '퇴직·제외 처리했습니다. 만료 알림도 함께 중지됐습니다.'
+      : '재직 대상으로 복원했습니다. 필요하면 종 아이콘으로 알림을 다시 켜세요.', 'success');
   } catch (error) {
     showToast(`재직 상태 변경에 실패했습니다: ${error?.message || ''}`, 'error');
   }
@@ -2553,7 +2623,7 @@ async function installPwaApp() {
 function registerPwa() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=202608260230', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=202608260250', { scope: './' })
       .then(() => console.info('PWA 서비스 워커가 등록되었습니다.'))
       .catch(error => console.warn('PWA 서비스 워커 등록 실패:', error));
   });
