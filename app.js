@@ -524,6 +524,7 @@ let dashboardFilter = 'all';
 let mobileSelectedProductIds = new Set();
 let dashboardFilteredProducts = [];
 let dashboardQuickFilter = 'all';
+let healthMonthlyStatsScope = 'active';
 
 function switchTab(tabId) {
   currentTab = tabId;
@@ -619,7 +620,13 @@ function resetDashboardFilters() {
   renderDashboard();
 }
 
-function getHealthMonthlyExpiryStats(monthCount = 13) {
+function setHealthMonthlyStatsScope(scope) {
+  healthMonthlyStatsScope = scope === 'all' ? 'all' : 'active';
+  renderHealthMonthlyExpiryChart();
+  lucide.createIcons();
+}
+
+function getHealthMonthlyExpiryStats(monthCount = 13, scope = healthMonthlyStatsScope) {
   const [year, month] = getTodayKstStr().split('-').map(Number);
   const months = Array.from({ length: monthCount }, (_, index) => {
     const date = new Date(year, month - 1 + index, 1);
@@ -648,10 +655,19 @@ function getHealthMonthlyExpiryStats(monthCount = 13) {
     inactive: 0,
     total: 0
   };
-  const computedHealth = appState.healthCerts.map(getHealthCertComputed);
+  const allComputedHealth = appState.healthCerts.map(getHealthCertComputed);
+  const activeEmployees = allComputedHealth.filter(item => item.employmentStatus !== 'inactive');
+  const activeAlertEmployees = activeEmployees.filter(item => item.alertStatus !== 'paused');
+  const computedHealth = scope === 'active' ? activeAlertEmployees : allComputedHealth;
+  const excludedInactive = allComputedHealth.filter(item => item.employmentStatus === 'inactive').length;
+  const excludedPaused = activeEmployees.filter(item => item.alertStatus === 'paused').length;
   const summary = {
     registered: computedHealth.length,
-    active: computedHealth.filter(item => item.employmentStatus !== 'inactive').length,
+    totalRegistered: allComputedHealth.length,
+    active: activeEmployees.length,
+    alertEligible: activeAlertEmployees.length,
+    excludedInactive,
+    excludedPaused,
     overdue: computedHealth.filter(item => item.status === 'overdue').length,
     urgent: computedHealth.filter(item => item.status === 'urgent').length,
     paused: computedHealth.filter(item => item.status === 'paused').length,
@@ -680,8 +696,16 @@ function renderHealthMonthlyExpiryChart() {
   const chart = document.getElementById('health-expiry-monthly-chart');
   if (!chart) return;
 
+  const isActiveScope = healthMonthlyStatsScope === 'active';
   const { entries, summary } = getHealthMonthlyExpiryStats();
   const maxCount = Math.max(1, ...entries.map(item => item.total));
+  const scopeLabel = isActiveScope ? '재직·알림 활성 직원만' : '전체 등록 직원';
+  const scopeDescription = isActiveScope
+    ? `퇴직·제외 ${summary.excludedInactive}명 · 알림 중지 ${summary.excludedPaused}명 제외`
+    : `재직 ${summary.active}명 · 퇴직·제외 ${summary.inactive}명`;
+  const scopeButtonClass = active => active
+    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700';
   const statusMeta = [
     { key: 'overdue', label: '만료 초과', color: 'bg-red-500', text: 'text-red-700 dark:text-red-300' },
     { key: 'urgent', label: '알림 구간', color: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-300' },
@@ -706,27 +730,33 @@ function renderHealthMonthlyExpiryChart() {
             <i data-lucide="chart-column-big" class="h-5 w-5 text-blue-500"></i>
             <span>보건증 월별 만료 현황</span>
           </h2>
-          <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">현재 등록된 직원의 만료일을 기준으로 이번 달을 포함한 향후 12개월을 집계했습니다. 상태는 오늘 기준으로 계산됩니다.</p>
+          <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">${scopeLabel}의 만료일을 기준으로 이번 달을 포함한 향후 12개월을 집계했습니다. 상태는 오늘 기준으로 계산됩니다.</p>
         </div>
-        <button type="button" onclick="switchTab('health')" class="inline-flex w-fit items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 dark:border-blue-900/70 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-900/50">
-          <i data-lucide="clipboard-check" class="h-3.5 w-3.5"></i><span>보건증 관리</span>
-        </button>
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="inline-flex rounded-lg border border-slate-200 p-0.5 dark:border-slate-700" aria-label="보건증 통계 대상 필터">
+            <button type="button" onclick="setHealthMonthlyStatsScope('active')" class="rounded-md border px-2.5 py-1.5 text-xs font-semibold transition ${scopeButtonClass(isActiveScope)}">재직자만</button>
+            <button type="button" onclick="setHealthMonthlyStatsScope('all')" class="rounded-md border px-2.5 py-1.5 text-xs font-semibold transition ${scopeButtonClass(!isActiveScope)}">전체 등록</button>
+          </div>
+          <button type="button" onclick="switchTab('health')" class="inline-flex w-fit items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 dark:border-blue-900/70 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-900/50">
+            <i data-lucide="clipboard-check" class="h-3.5 w-3.5"></i><span>보건증 관리</span>
+          </button>
+        </div>
       </div>
 
       <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        ${metricCard('등록 인원', summary.registered, 'text-slate-700 dark:text-slate-200', `재직 ${summary.active}명 · 퇴직·제외 ${summary.inactive}명`)}
+        ${metricCard(isActiveScope ? '통계 대상' : '등록 인원', summary.registered, 'text-slate-700 dark:text-slate-200', scopeDescription)}
         ${metricCard('만료 초과', summary.overdue, 'text-red-700 dark:text-red-300', '즉시 갱신 확인 필요')}
         ${metricCard('알림 구간', summary.urgent, 'text-amber-700 dark:text-amber-300', `${getHealthAlertDaysLabel()} 기준`)}
-        ${metricCard('알림 중지', summary.paused, 'text-violet-700 dark:text-violet-300', '상태 전환으로 재개 가능')}
+        ${metricCard(isActiveScope ? '제외된 인원' : '알림 중지', isActiveScope ? summary.excludedInactive + summary.excludedPaused : summary.paused, 'text-violet-700 dark:text-violet-300', isActiveScope ? '퇴직·제외 및 알림 중지' : '상태 전환으로 재개 가능')}
         ${metricCard('만료일 미입력', summary.noExpiryDate, 'text-slate-700 dark:text-slate-300', '등록 정보 확인 필요')}
       </div>
 
       <div class="rounded-xl border border-slate-100 bg-slate-50/50 p-3 sm:p-4 dark:border-slate-800 dark:bg-slate-900/35">
         <div class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-300">
           ${statusMeta.map(meta => `<span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full ${meta.color}"></span>${meta.label}</span>`).join('')}
-          <span class="ml-auto text-slate-400 dark:text-slate-500">만료 초과 + 이번 달 포함 향후 12개월</span>
+          <span class="ml-auto text-slate-400 dark:text-slate-500">${scopeLabel} · 만료 초과 + 향후 12개월</span>
         </div>
-        <div class="flex min-h-48 items-end gap-1.5 sm:gap-3" role="img" aria-label="보건증 월별 만료 상태 통계 차트">
+        <div class="flex min-h-48 items-end gap-1.5 sm:gap-3" role="img" aria-label="${scopeLabel} 보건증 월별 만료 상태 통계 차트">
           ${entries.map(item => {
             const segments = statusMeta.filter(meta => item[meta.key] > 0).map(meta => {
               const height = Math.max(8, Math.round((item[meta.key] / maxCount) * 128));
@@ -2919,7 +2949,7 @@ async function installPwaApp() {
 function registerPwa() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=202608260520', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=202608260540', { scope: './' })
       .then(() => console.info('PWA 서비스 워커가 등록되었습니다.'))
       .catch(error => console.warn('PWA 서비스 워커 등록 실패:', error));
   });
