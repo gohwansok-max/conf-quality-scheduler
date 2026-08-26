@@ -96,6 +96,11 @@ function escapeHtml(str) {
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function formatHealthDepartmentRole(value) {
+  const departmentRole = String(value || '').replace(/\s+/g, ' ').trim();
+  return departmentRole || '미지정';
+}
+
 async function run() {
   const todayStr = getTodayKstStr();
 
@@ -179,7 +184,7 @@ async function run() {
     if (c.employment_status === 'inactive' || c.alert_status === 'paused') return;
     const dDay = calcDDay(c.expires_at, todayStr);
     if (dDay !== null && (dDay < 0 || healthAlertDays.includes(dDay))) {
-      warningHealthCerts.push({ name: c.employee_name, dept: c.department || '미지정', expiresAt: c.expires_at, dDay });
+      warningHealthCerts.push({ name: c.employee_name, departmentRole: formatHealthDepartmentRole(c.department), expiresAt: c.expires_at, dDay });
     }
   });
 
@@ -223,7 +228,8 @@ async function run() {
     message += `👤 <b>보건증 만료 알림 (${healthAlertDaysLabel}) · ${warningHealthCerts.length}명</b>\n`;
     warningHealthCerts.forEach((c, idx) => {
       const statusText = c.dDay < 0 ? `${Math.abs(c.dDay)}일 초과` : `D-${c.dDay}`;
-      message += `${idx + 1}. <b>${escapeHtml(c.name)}</b> · ${escapeHtml(c.dept)} · ${statusText}\n`;
+      message += `${idx + 1}. <b>${escapeHtml(c.name)}</b>\n`;
+      message += `   부서/직책: ${escapeHtml(c.departmentRole)} · <b>${statusText}</b> · 만료 ${c.expiresAt}\n`;
     });
     message += `\n`;
   }
