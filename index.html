@@ -354,6 +354,10 @@
               <i data-lucide="file-up" class="w-4 h-4"></i>
               <span>작성 양식 업로드</span>
             </button>
+            <button onclick="testTelegramNotification()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800 transition" title="보건증 만료 30일 전 대상이 포함된 시험 알림을 즉시 보냅니다.">
+              <i data-lucide="bell-ring" class="w-4 h-4"></i>
+              <span>보건증 알림 시험</span>
+            </button>
             <input type="file" id="health-excel-import-file" onchange="handleHealthExcelImport(event)" accept=".xlsx,.xls,.csv" class="hidden">
             <button onclick="openAddHealthCertModal()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition">
               <i data-lucide="plus" class="w-4 h-4"></i>
@@ -362,12 +366,13 @@
           </div>
         </div>
 
-        <div id="health-alert-summary" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
+        <div id="health-alert-summary" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
 
         <div class="flex flex-wrap items-center gap-2" id="health-filter-controls">
           <button type="button" data-health-filter="all" onclick="setHealthListFilter('all')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">전체</button>
           <button type="button" data-health-filter="overdue" onclick="setHealthListFilter('overdue')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300">기간 초과</button>
           <button type="button" data-health-filter="urgent" onclick="setHealthListFilter('urgent')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">30일 이내</button>
+          <button type="button" data-health-filter="inactive" onclick="setHealthListFilter('inactive')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-100">퇴직·제외</button>
           <span class="text-xs text-slate-400 dark:text-slate-500">양식 다운로드 → 작성 → 업로드 순서로 사용하세요. 동일 이름은 발급·만료일을 갱신하고, 첨부 파일은 유지합니다.</span>
         </div>
 
@@ -857,6 +862,6 @@
   <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
 
   <script src="runtime-config.js"></script>
-  <script src="app.js?v=202608260250"></script>
+  <script src="app.js?v=202608260325"></script>
 </body>
 </html>
