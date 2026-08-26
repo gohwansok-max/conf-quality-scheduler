@@ -93,6 +93,7 @@ let appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
 let isCloudConnected = false;
 let isSavingHealthCert = false;
 let healthListFilter = 'all';
+let healthListSort = 'expires_asc';
 const healthManagementPendingIds = new Set();
 const HEALTH_ALERT_DAYS_KEY = 'health_alert_days';
 const DEFAULT_HEALTH_ALERT_DAYS = [30, 7, 1];
@@ -857,6 +858,11 @@ function setHealthListFilter(filter) {
   renderHealthCerts();
 }
 
+function setHealthListSort(sort) {
+  healthListSort = ['expires_asc', 'expires_desc'].includes(sort) ? sort : 'expires_asc';
+  renderHealthCerts();
+}
+
 function renderHealthAlertSummary(computedHealth) {
   const summary = document.getElementById('health-alert-summary');
   if (!summary) return;
@@ -865,9 +871,16 @@ function renderHealthAlertSummary(computedHealth) {
   const overdue = active.filter(c => c.dDay < 0);
   const urgent = active.filter(c => c.dDay >= 0 && c.dDay <= Math.max(...getHealthAlertDays()));
   const inactive = computedHealth.filter(c => c.employmentStatus === 'inactive');
+  const registeredCount = computedHealth.length;
+  const activeCount = computedHealth.filter(c => c.employmentStatus !== 'inactive').length;
   const next = active.filter(c => c.dDay >= 0).sort((a, b) => a.dDay - b.dDay)[0];
 
   summary.innerHTML = `
+    <button type="button" onclick="setHealthListFilter('all')" class="text-left rounded-xl border border-blue-200 bg-blue-50 p-3 transition hover:bg-blue-100 dark:border-blue-900/60 dark:bg-blue-950/30 dark:hover:bg-blue-950/50">
+      <span class="block text-xs font-semibold text-blue-700 dark:text-blue-300">등록 인원</span>
+      <strong class="mt-1 block text-2xl text-blue-700 dark:text-blue-200">${registeredCount}<small class="ml-1 text-xs font-medium">명</small></strong>
+      <span class="mt-0.5 block text-xs text-blue-600/80 dark:text-blue-300/80">재직 ${activeCount}명</span>
+    </button>
     <button type="button" onclick="setHealthListFilter('overdue')" class="text-left rounded-xl border border-red-200 bg-red-50 p-3 transition hover:bg-red-100 dark:border-red-900/60 dark:bg-red-950/30 dark:hover:bg-red-950/50">
       <span class="block text-xs font-semibold text-red-700 dark:text-red-300">기간 초과</span>
       <strong class="mt-1 block text-2xl text-red-700 dark:text-red-200">${overdue.length}<small class="ml-1 text-xs font-medium">명</small></strong>
@@ -893,6 +906,8 @@ function renderHealthAlertSummary(computedHealth) {
     button.classList.toggle('ring-2', activeFilter);
     button.classList.toggle('ring-blue-400', activeFilter);
   });
+  const sortSelect = document.getElementById('health-sort-select');
+  if (sortSelect) sortSelect.value = healthListSort;
 }
 
 function renderHealthCerts() {
@@ -906,6 +921,17 @@ function renderHealthCerts() {
     : healthListFilter === 'inactive'
       ? computedHealth.filter(c => c.employmentStatus === 'inactive')
       : computedHealth.filter(c => c.status === healthListFilter);
+
+  filteredHealth.sort((a, b) => {
+    if (!a.expiresAt && !b.expiresAt) return String(a.employeeName || '').localeCompare(String(b.employeeName || ''), 'ko');
+    if (!a.expiresAt) return 1;
+    if (!b.expiresAt) return -1;
+    const byExpiry = String(a.expiresAt).localeCompare(String(b.expiresAt));
+    const byName = String(a.employeeName || '').localeCompare(String(b.employeeName || ''), 'ko');
+    return healthListSort === 'expires_desc'
+      ? (byExpiry === 0 ? byName : -byExpiry)
+      : (byExpiry === 0 ? byName : byExpiry);
+  });
 
   if (filteredHealth.length === 0) {
     const message = computedHealth.length === 0 ? '등록된 보건증 대상자가 없습니다.' : '선택한 상태의 보건증 대상자가 없습니다.';
@@ -2682,7 +2708,7 @@ async function installPwaApp() {
 function registerPwa() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=202608260350', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=202608260430', { scope: './' })
       .then(() => console.info('PWA 서비스 워커가 등록되었습니다.'))
       .catch(error => console.warn('PWA 서비스 워커 등록 실패:', error));
   });
