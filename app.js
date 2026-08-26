@@ -81,6 +81,7 @@ const DEFAULT_DATA = {
   settings: {
     warningDays: 14,
     healthWarningDays: 30,
+    healthAlertDays: '30,7,1',
     telegramBotToken: '',
     telegramChatId: '',
     certPrefix: 'CONF-QC',
@@ -93,6 +94,28 @@ let isCloudConnected = false;
 let isSavingHealthCert = false;
 let healthListFilter = 'all';
 const healthManagementPendingIds = new Set();
+const HEALTH_ALERT_DAYS_KEY = 'health_alert_days';
+const DEFAULT_HEALTH_ALERT_DAYS = [30, 7, 1];
+
+function normalizeHealthAlertDays(value) {
+  const source = Array.isArray(value) ? value : String(value ?? '').split(/[\s,;/]+/);
+  const days = source
+    .map(item => Number(item))
+    .filter(day => Number.isInteger(day) && day >= 0 && day <= 365);
+  return [...new Set(days.length ? days : DEFAULT_HEALTH_ALERT_DAYS)].sort((a, b) => b - a);
+}
+
+function getHealthAlertDays() {
+  return normalizeHealthAlertDays(appState.settings?.healthAlertDays || appState.settings?.healthWarningDays || DEFAULT_HEALTH_ALERT_DAYS);
+}
+
+function getHealthAlertDaysLabel() {
+  return getHealthAlertDays().map(day => `D-${day}`).join(' · ');
+}
+
+function isHealthAlertDue(dDay) {
+  return dDay !== null && (dDay < 0 || getHealthAlertDays().includes(dDay));
+}
 
 function getPinnedTelegramSettings() {
   try {
@@ -468,7 +491,7 @@ function getHealthCertComputed(c) {
     status = 'paused';
   } else if (dDay !== null) {
     if (dDay < 0) status = 'overdue';
-    else if (dDay <= (c.warningDays || appState.settings.healthWarningDays || 30)) status = 'urgent';
+    else if (dDay <= Math.max(...getHealthAlertDays())) status = 'urgent';
     else status = 'safe';
   }
   return { ...c, dDay, status };
@@ -840,7 +863,7 @@ function renderHealthAlertSummary(computedHealth) {
 
   const active = computedHealth.filter(c => c.employmentStatus !== 'inactive' && c.alertStatus !== 'paused' && c.dDay !== null);
   const overdue = active.filter(c => c.dDay < 0);
-  const urgent = active.filter(c => c.dDay >= 0 && c.dDay <= (c.warningDays || appState.settings.healthWarningDays || 30));
+  const urgent = active.filter(c => c.dDay >= 0 && c.dDay <= Math.max(...getHealthAlertDays()));
   const inactive = computedHealth.filter(c => c.employmentStatus === 'inactive');
   const next = active.filter(c => c.dDay >= 0).sort((a, b) => a.dDay - b.dDay)[0];
 
@@ -850,7 +873,7 @@ function renderHealthAlertSummary(computedHealth) {
       <strong class="mt-1 block text-2xl text-red-700 dark:text-red-200">${overdue.length}<small class="ml-1 text-xs font-medium">명</small></strong>
     </button>
     <button type="button" onclick="setHealthListFilter('urgent')" class="text-left rounded-xl border border-amber-200 bg-amber-50 p-3 transition hover:bg-amber-100 dark:border-amber-900/60 dark:bg-amber-950/30 dark:hover:bg-amber-950/50">
-      <span class="block text-xs font-semibold text-amber-700 dark:text-amber-300">만료 임박 (${appState.settings.healthWarningDays || 30}일)</span>
+      <span class="block text-xs font-semibold text-amber-700 dark:text-amber-300">만료 알림 (${getHealthAlertDaysLabel()})</span>
       <strong class="mt-1 block text-2xl text-amber-700 dark:text-amber-200">${urgent.length}<small class="ml-1 text-xs font-medium">명</small></strong>
     </button>
     <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/70">
@@ -1007,7 +1030,7 @@ function renderSettings() {
   document.getElementById('setting-tg-token').value = appState.settings.telegramBotToken || '';
   document.getElementById('setting-tg-chatid').value = appState.settings.telegramChatId || '';
   document.getElementById('setting-warning-days').value = appState.settings.warningDays || 14;
-  document.getElementById('setting-health-warning-days').value = appState.settings.healthWarningDays || 30;
+  document.getElementById('setting-health-alert-days').value = getHealthAlertDays().join(', ');
   updateTelegramSettingsStatus();
   updateTelegramCloudStatus(isCloudConnected ? '암호화 암호를 입력한 뒤 다른 기기와 동기화할 수 있습니다.' : '클라우드 연결을 확인한 뒤 동기화할 수 있습니다.');
 }
@@ -2535,13 +2558,31 @@ function toggleTelegramTokenVisibility() {
   lucide.createIcons();
 }
 
-function saveNotificationDays() {
+async function saveHealthAlertDaysToCloud(value) {
+  if (!supabaseClient || !isCloudConnected) return;
+  const { error } = await supabaseClient
+    .from('quality_settings')
+    .upsert([{ key: HEALTH_ALERT_DAYS_KEY, value }], { onConflict: 'key' });
+  if (error) throw error;
+}
+
+async function saveNotificationDays() {
   const wDays = Number(document.getElementById('setting-warning-days').value) || 14;
-  const hwDays = Number(document.getElementById('setting-health-warning-days').value) || 30;
+  const healthAlertDays = normalizeHealthAlertDays(document.getElementById('setting-health-alert-days').value);
+  const healthAlertDaysValue = healthAlertDays.join(',');
   appState.settings.warningDays = wDays;
-  appState.settings.healthWarningDays = hwDays;
+  appState.settings.healthAlertDays = healthAlertDaysValue;
+  appState.settings.healthWarningDays = Math.max(...healthAlertDays);
   saveLocalState();
-  showToast('알림 기준일이 저장되었습니다.', 'success');
+  try {
+    await saveHealthAlertDaysToCloud(healthAlertDaysValue);
+    showToast(`보건증 알림 구간(${getHealthAlertDaysLabel()})이 저장되었습니다.`, 'success');
+  } catch (error) {
+    console.error('보건증 알림 구간 클라우드 저장 실패:', error);
+    showToast('이 기기에는 저장됐지만 클라우드 동기화에 실패했습니다. 다시 저장해 주세요.', 'error');
+  }
+  renderSettings();
+  renderHealthCerts();
 }
 
 async function testTelegramNotification() {
@@ -2556,10 +2597,10 @@ async function testTelegramNotification() {
   const computedProducts = appState.products.map(getProductComputed);
   const overdueCount = computedProducts.filter(p => p.status === 'overdue').length;
   const urgentCount = computedProducts.filter(p => p.status === 'urgent').length;
-  const healthWarningDays = Number(appState.settings.healthWarningDays) || 30;
+  const healthAlertDays = getHealthAlertDays();
   const healthDue = appState.healthCerts
     .map(getHealthCertComputed)
-    .filter(c => c.employmentStatus !== 'inactive' && c.alertStatus !== 'paused' && c.dDay !== null && c.dDay <= healthWarningDays)
+    .filter(c => c.employmentStatus !== 'inactive' && c.alertStatus !== 'paused' && isHealthAlertDue(c.dDay))
     .sort((a, b) => a.dDay - b.dDay);
   const healthLines = healthDue.length
     ? healthDue.map((c, index) => `${index + 1}. ${c.employeeName} · ${c.department || '부서 미지정'} · ${c.dDay < 0 ? `${Math.abs(c.dDay)}일 초과` : `D-${c.dDay}`} · 만료 ${c.expiresAt}`).join('\n')
@@ -2570,7 +2611,7 @@ async function testTelegramNotification() {
     `━━━━━━━━━━━━━━━━\n` +
     `🚨 기간 초과 품목: ${overdueCount}건\n` +
     `⚠️ 14일 내 검사 마감: ${urgentCount}건\n` +
-    `👤 보건증 만료 주의 (${healthWarningDays}일 이내): ${healthDue.length}명\n` +
+    `👤 보건증 만료 알림 (${healthAlertDays.map(day => `D-${day}`).join(' · ')}): ${healthDue.length}명\n` +
     `${healthLines}\n` +
     `━━━━━━━━━━━━━━━━\n` +
     `✅ 시스템 시험 알림입니다. 실제 예약 알림은 매일 오전 9시에 발송됩니다.`;
@@ -2641,7 +2682,7 @@ async function installPwaApp() {
 function registerPwa() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=202608260325', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=202608260350', { scope: './' })
       .then(() => console.info('PWA 서비스 워커가 등록되었습니다.'))
       .catch(error => console.warn('PWA 서비스 워커 등록 실패:', error));
   });
