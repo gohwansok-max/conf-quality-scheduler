@@ -90,6 +90,7 @@ const DEFAULT_DATA = {
 
 let appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
 let isCloudConnected = false;
+let isSavingHealthCert = false;
 
 function getPinnedTelegramSettings() {
   try {
@@ -274,8 +275,11 @@ async function loadCloudState(showToastNotice = false) {
       supabaseClient.from('quality_settings').select('*')
     ]);
 
-    if (resTypes.error || resProds.error) {
-      console.warn('Supabase 테이블 조회 실패 (로컬 모드 유지):', resTypes.error || resProds.error);
+    const cloudLoadError = [resTypes, resProds, resHistory, resHealth, resCerts, resSettings]
+      .map(result => result.error)
+      .find(Boolean);
+    if (cloudLoadError) {
+      console.warn('Supabase 테이블 조회 실패 (로컬 모드 유지):', cloudLoadError);
       loadLocalState();
       updateCloudBadge(false);
       return;
@@ -1499,8 +1503,27 @@ async function uploadFileToCloud(file, folder = 'health') {
   }
 }
 
+function mapHealthCertificateRow(c) {
+  return {
+    id: c.id,
+    employeeName: c.employee_name,
+    department: c.department || '',
+    issuedAt: c.issued_at,
+    expiresAt: c.expires_at,
+    warningDays: c.warning_days || 30,
+    memo: c.memo || '',
+    fileUrl: c.file_url || '',
+    fileName: c.file_name || '',
+    hasFile: !!(c.file_url || c.file_name),
+    employmentStatus: c.employment_status || 'active',
+    alertStatus: c.alert_status || 'active'
+  };
+}
+
 async function handleSaveHealthCert(e) {
   e.preventDefault();
+  if (isSavingHealthCert) return;
+
   const id = document.getElementById('health-id').value;
   const employeeName = document.getElementById('health-name').value.trim();
   const department = document.getElementById('health-dept').value.trim();
@@ -1514,18 +1537,21 @@ async function handleSaveHealthCert(e) {
     return;
   }
 
+  isSavingHealthCert = true;
   showToast('보건증 정보를 저장하는 중...', 'info');
 
-  let fileUrl = '';
-  let fileName = '';
-  if (fileInput.files.length > 0) {
-    const uploadRes = await uploadFileToCloud(fileInput.files[0], 'health');
-    fileUrl = uploadRes.url;
-    fileName = uploadRes.name;
-  }
+  try {
+    let fileUrl = '';
+    let fileName = '';
+    if (fileInput.files.length > 0) {
+      const uploadRes = await uploadFileToCloud(fileInput.files[0], 'health');
+      if (!uploadRes.url) throw new Error('첨부 파일을 클라우드 저장소에 업로드하지 못했습니다. 파일을 다시 선택해 주세요.');
+      fileUrl = uploadRes.url;
+      fileName = uploadRes.name;
+    }
 
-  if (supabaseClient && isCloudConnected) {
-    try {
+    if (supabaseClient && isCloudConnected) {
+      let response;
       if (id) {
         const updateData = {
           employee_name: employeeName,
@@ -1538,27 +1564,47 @@ async function handleSaveHealthCert(e) {
           updateData.file_url = fileUrl;
           updateData.file_name = fileName;
         }
-        await supabaseClient.from('quality_health_certs').update(updateData).eq('id', Number(id));
+        response = await supabaseClient
+          .from('quality_health_certs')
+          .update(updateData)
+          .eq('id', Number(id))
+          .select()
+          .single();
       } else {
-        await supabaseClient.from('quality_health_certs').insert([{
-          employee_name: employeeName,
-          department,
-          issued_at: issuedAt,
-          expires_at: expiresAt,
-          warning_days: appState.settings.healthWarningDays || 30,
-          memo,
-          file_url: fileUrl,
-          file_name: fileName,
-          employment_status: 'active',
-          alert_status: 'active'
-        }]);
+        response = await supabaseClient
+          .from('quality_health_certs')
+          .insert([{
+            employee_name: employeeName,
+            department,
+            issued_at: issuedAt,
+            expires_at: expiresAt,
+            warning_days: appState.settings.healthWarningDays || 30,
+            memo,
+            file_url: fileUrl,
+            file_name: fileName,
+            employment_status: 'active',
+            alert_status: 'active'
+          }])
+          .select()
+          .single();
       }
-      showToast('보건증 정보가 클라우드에 저장되었습니다.', 'success');
-      await loadCloudState();
-    } catch (err) {
-      console.error(err);
+
+      if (response.error) throw response.error;
+      if (!response.data) throw new Error('저장 결과를 확인하지 못했습니다. 다시 시도해 주세요.');
+
+      const saved = mapHealthCertificateRow(response.data);
+      const existingIndex = appState.healthCerts.findIndex(item => Number(item.id) === Number(saved.id));
+      if (existingIndex >= 0) appState.healthCerts.splice(existingIndex, 1, saved);
+      else appState.healthCerts.push(saved);
+      appState.healthCerts.sort((a, b) => Number(a.id) - Number(b.id));
+      saveLocalState();
+      renderCurrentTab();
+      closeModal('modal-health');
+      showToast('보건증 정보와 첨부 파일이 저장되었습니다.', 'success');
+      void loadCloudState();
+      return;
     }
-  } else {
+
     if (id) {
       const c = appState.healthCerts.find(x => x.id === Number(id));
       if (c) {
@@ -1567,7 +1613,7 @@ async function handleSaveHealthCert(e) {
         c.issuedAt = issuedAt;
         c.expiresAt = expiresAt;
         c.memo = memo;
-        if (fileName) { c.fileName = fileName; c.hasFile = true; }
+        if (fileName) { c.fileName = fileName; c.fileUrl = fileUrl; c.hasFile = true; }
       }
     } else {
       const targetId = appState.healthCerts.length ? Math.max(...appState.healthCerts.map(c => c.id)) + 1 : 1;
@@ -1580,6 +1626,7 @@ async function handleSaveHealthCert(e) {
         warningDays: appState.settings.healthWarningDays || 30,
         memo,
         hasFile: !!fileName,
+        fileUrl,
         fileName,
         employmentStatus: 'active',
         alertStatus: 'active'
@@ -1587,9 +1634,14 @@ async function handleSaveHealthCert(e) {
     }
     saveLocalState();
     renderCurrentTab();
+    closeModal('modal-health');
+    showToast('보건증 정보가 이 브라우저에 저장되었습니다.', 'success');
+  } catch (err) {
+    console.error('보건증 저장 실패:', err);
+    showToast(`보건증 저장에 실패했습니다: ${err?.message || '클라우드 연결 또는 권한을 확인해 주세요.'}`, 'error');
+  } finally {
+    isSavingHealthCert = false;
   }
-
-  closeModal('modal-health');
 }
 
 async function deleteHealthCert(id) {
