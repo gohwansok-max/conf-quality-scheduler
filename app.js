@@ -830,7 +830,7 @@ function renderTypes() {
 }
 
 function setHealthListFilter(filter) {
-  healthListFilter = ['all', 'overdue', 'urgent'].includes(filter) ? filter : 'all';
+  healthListFilter = ['all', 'overdue', 'urgent', 'inactive'].includes(filter) ? filter : 'all';
   renderHealthCerts();
 }
 
@@ -841,6 +841,7 @@ function renderHealthAlertSummary(computedHealth) {
   const active = computedHealth.filter(c => c.employmentStatus !== 'inactive' && c.alertStatus !== 'paused' && c.dDay !== null);
   const overdue = active.filter(c => c.dDay < 0);
   const urgent = active.filter(c => c.dDay >= 0 && c.dDay <= (c.warningDays || appState.settings.healthWarningDays || 30));
+  const inactive = computedHealth.filter(c => c.employmentStatus === 'inactive');
   const next = active.filter(c => c.dDay >= 0).sort((a, b) => a.dDay - b.dDay)[0];
 
   summary.innerHTML = `
@@ -857,6 +858,11 @@ function renderHealthAlertSummary(computedHealth) {
       <strong class="mt-1 block truncate text-sm text-slate-900 dark:text-white">${next ? `${escapeHtml(next.employeeName)} · ${formatDDay(next.dDay)}` : '확인 대상 없음'}</strong>
       <span class="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">${next?.expiresAt || '만료일이 등록된 대상자가 없습니다.'}</span>
     </div>
+    <button type="button" onclick="setHealthListFilter('inactive')" class="text-left rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/70 dark:hover:bg-slate-800">
+      <span class="block text-xs font-semibold text-slate-600 dark:text-slate-300">퇴직·제외</span>
+      <strong class="mt-1 block text-2xl text-slate-700 dark:text-slate-200">${inactive.length}<small class="ml-1 text-xs font-medium">명</small></strong>
+      <span class="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">알림 발송 제외</span>
+    </button>
   `;
 
   document.querySelectorAll('[data-health-filter]').forEach(button => {
@@ -874,7 +880,9 @@ function renderHealthCerts() {
   renderHealthAlertSummary(computedHealth);
   const filteredHealth = healthListFilter === 'all'
     ? computedHealth
-    : computedHealth.filter(c => c.status === healthListFilter);
+    : healthListFilter === 'inactive'
+      ? computedHealth.filter(c => c.employmentStatus === 'inactive')
+      : computedHealth.filter(c => c.status === healthListFilter);
 
   if (filteredHealth.length === 0) {
     const message = computedHealth.length === 0 ? '등록된 보건증 대상자가 없습니다.' : '선택한 상태의 보건증 대상자가 없습니다.';
@@ -2548,17 +2556,27 @@ async function testTelegramNotification() {
   const computedProducts = appState.products.map(getProductComputed);
   const overdueCount = computedProducts.filter(p => p.status === 'overdue').length;
   const urgentCount = computedProducts.filter(p => p.status === 'urgent').length;
+  const healthWarningDays = Number(appState.settings.healthWarningDays) || 30;
+  const healthDue = appState.healthCerts
+    .map(getHealthCertComputed)
+    .filter(c => c.employmentStatus !== 'inactive' && c.alertStatus !== 'paused' && c.dDay !== null && c.dDay <= healthWarningDays)
+    .sort((a, b) => a.dDay - b.dDay);
+  const healthLines = healthDue.length
+    ? healthDue.map((c, index) => `${index + 1}. ${c.employeeName} · ${c.department || '부서 미지정'} · ${c.dDay < 0 ? `${Math.abs(c.dDay)}일 초과` : `D-${c.dDay}`} · 만료 ${c.expiresAt}`).join('\n')
+    : '대상 없음';
 
-  const msgText = `🧪 [코엔에프 자가품질검사 알림]\n` +
+  const msgText = `🧪 [코엔에프 품질·보건증 시험 알림]\n` +
     `📅 기준일시: ${new Date().toLocaleString('ko-KR')}\n` +
     `━━━━━━━━━━━━━━━━\n` +
     `🚨 기간 초과 품목: ${overdueCount}건\n` +
-    `⚠️ 14일 내 마감 임박: ${urgentCount}건\n` +
+    `⚠️ 14일 내 검사 마감: ${urgentCount}건\n` +
+    `👤 보건증 만료 주의 (${healthWarningDays}일 이내): ${healthDue.length}명\n` +
+    `${healthLines}\n` +
     `━━━━━━━━━━━━━━━━\n` +
-    `✅ 시스템 시험 알림이 성공적으로 수신되었습니다.`;
+    `✅ 시스템 시험 알림입니다. 실제 예약 알림은 매일 오전 9시에 발송됩니다.`;
 
   try {
-    showToast('텔레그램으로 시험 알림을 전송하는 중...', 'info');
+    showToast('텔레그램으로 보건증 포함 시험 알림을 전송하는 중...', 'info');
     const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2566,7 +2584,7 @@ async function testTelegramNotification() {
     });
     const result = await resp.json();
     if (result.ok) {
-      showToast('텔레그램 메시지가 정상 발송되었습니다! 🎉', 'success');
+      showToast(`텔레그램 시험 알림이 정상 발송되었습니다. 보건증 대상 ${healthDue.length}명을 포함했습니다.`, 'success');
     } else {
       showToast(`전송 실패: ${result.description || 'Bot Token 또는 Chat ID 확인 필요'}`, 'error');
     }
@@ -2623,7 +2641,7 @@ async function installPwaApp() {
 function registerPwa() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=202608260250', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=202608260325', { scope: './' })
       .then(() => console.info('PWA 서비스 워커가 등록되었습니다.'))
       .catch(error => console.warn('PWA 서비스 워커 등록 실패:', error));
   });
