@@ -1999,78 +1999,125 @@ function parseHealthExcelWorkbook(workbook) {
   return records;
 }
 
+function waitForHealthCloudRetry(milliseconds) {
+  return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+function isTransientHealthCloudError(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  return error instanceof TypeError || /failed to fetch|network|timeout|temporar|connection/.test(message);
+}
+
+async function runHealthCloudRequest(request, label) {
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const response = await request();
+      if (response?.error) throw response.error;
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (!isTransientHealthCloudError(error) || attempt === 3) break;
+      await waitForHealthCloudRetry(500 * attempt);
+    }
+  }
+  throw new Error(`${label} 저장에 실패했습니다. ${lastError?.message || '네트워크 연결을 확인한 뒤 다시 시도하세요.'}`);
+}
+
 async function handleHealthExcelImport(event) {
   const file = event.target.files?.[0];
   if (!file) return;
 
+  let added = 0;
+  let updated = 0;
   try {
     const fileData = await file.arrayBuffer();
     const workbook = XLSX.read(fileData, { type: 'array', cellDates: true });
     const records = parseHealthExcelWorkbook(workbook);
     if (records.length === 0) throw new Error('이름과 검진일 열을 찾지 못했습니다.');
 
-    const existingNames = new Set(appState.healthCerts.map(c => String(c.employeeName || '').trim()));
-    const updateCount = records.filter(record => existingNames.has(record.employeeName)).length;
+    const existingByName = new Map(appState.healthCerts.map(c => [String(c.employeeName || '').trim(), c]));
+    const updateCount = records.filter(record => existingByName.has(record.employeeName)).length;
     const message = `${records.length}명의 보건증 정보를 읽었습니다.\n신규 ${records.length - updateCount}명 등록, 기존 ${updateCount}명은 발급일·만료일·부서를 갱신합니다.\n첨부 파일과 알림 설정은 기존 값이 유지됩니다.\n계속하시겠습니까?`;
     if (!confirm(message)) return;
 
-    let added = 0;
-    let updated = 0;
-    for (const record of records) {
-      const existing = appState.healthCerts.find(c => String(c.employeeName || '').trim() === record.employeeName);
-      if (supabaseClient && isCloudConnected) {
-        const payload = {
-          employee_name: record.employeeName,
-          department: record.department,
-          issued_at: record.issuedAt,
-          expires_at: record.expiresAt,
-          memo: record.memo
-        };
-        const response = existing
-          ? await supabaseClient.from('quality_health_certs').update(payload).eq('id', existing.id).select().single()
-          : await supabaseClient.from('quality_health_certs').insert([{
-              ...payload,
-              warning_days: appState.settings.healthWarningDays || 30,
-              file_url: '',
-              file_name: '',
-              employment_status: 'active',
-              alert_status: 'active'
-            }]).select().single();
-        if (response.error || !response.data) throw response.error || new Error(`${record.employeeName} 저장 결과를 확인하지 못했습니다.`);
-        const saved = mapHealthCertificateRow(response.data);
-        const index = appState.healthCerts.findIndex(c => Number(c.id) === Number(saved.id));
-        if (index >= 0) appState.healthCerts.splice(index, 1, saved);
-        else appState.healthCerts.push(saved);
-      } else if (existing) {
-        existing.department = record.department;
-        existing.issuedAt = record.issuedAt;
-        existing.expiresAt = record.expiresAt;
-        existing.memo = record.memo;
-      } else {
-        const nextId = appState.healthCerts.length ? Math.max(...appState.healthCerts.map(c => Number(c.id) || 0)) + 1 : 1;
-        appState.healthCerts.push({
-          id: nextId,
-          ...record,
-          warningDays: appState.settings.healthWarningDays || 30,
-          fileUrl: '',
-          fileName: '',
-          hasFile: false,
-          employmentStatus: 'active',
-          alertStatus: 'active'
-        });
+    const cloudMode = Boolean(supabaseClient && isCloudConnected);
+    if (cloudMode) {
+      const newRecords = records.filter(record => !existingByName.has(record.employeeName));
+      const existingRecords = records.filter(record => existingByName.has(record.employeeName));
+
+      // 신규 행은 한 번에 저장해 네트워크 요청 수와 실패 가능성을 낮춥니다.
+      if (newRecords.length > 0) {
+        await runHealthCloudRequest(
+          () => supabaseClient.from('quality_health_certs').insert(newRecords.map(record => ({
+            employee_name: record.employeeName,
+            department: record.department,
+            issued_at: record.issuedAt,
+            expires_at: record.expiresAt,
+            memo: record.memo,
+            warning_days: appState.settings.healthWarningDays || 30,
+            file_url: '',
+            file_name: '',
+            employment_status: 'active',
+            alert_status: 'active'
+          }))),
+          '신규 보건증 일괄'
+        );
+        added = newRecords.length;
       }
-      if (existing) updated += 1;
-      else added += 1;
+
+      // 기존 대상은 첨부 파일·알림·재직 상태를 보존한 채 일정 정보만 갱신합니다.
+      for (const record of existingRecords) {
+        const existing = existingByName.get(record.employeeName);
+        await runHealthCloudRequest(
+          () => supabaseClient.from('quality_health_certs').update({
+            employee_name: record.employeeName,
+            department: record.department,
+            issued_at: record.issuedAt,
+            expires_at: record.expiresAt,
+            memo: record.memo
+          }).eq('id', existing.id),
+          `${record.employeeName} 보건증`
+        );
+        updated += 1;
+      }
+
+      await loadCloudState();
+    } else {
+      for (const record of records) {
+        const existing = existingByName.get(record.employeeName);
+        if (existing) {
+          existing.department = record.department;
+          existing.issuedAt = record.issuedAt;
+          existing.expiresAt = record.expiresAt;
+          existing.memo = record.memo;
+          updated += 1;
+        } else {
+          const nextId = appState.healthCerts.length ? Math.max(...appState.healthCerts.map(c => Number(c.id) || 0)) + 1 : 1;
+          appState.healthCerts.push({
+            id: nextId,
+            ...record,
+            warningDays: appState.settings.healthWarningDays || 30,
+            fileUrl: '',
+            fileName: '',
+            hasFile: false,
+            employmentStatus: 'active',
+            alertStatus: 'active'
+          });
+          added += 1;
+        }
+      }
+      appState.healthCerts.sort((a, b) => String(a.employeeName).localeCompare(String(b.employeeName), 'ko'));
+      saveLocalState();
+      renderCurrentTab();
     }
 
-    appState.healthCerts.sort((a, b) => String(a.employeeName).localeCompare(String(b.employeeName), 'ko'));
-    saveLocalState();
-    renderCurrentTab();
     showToast(`보건증 엑셀 등록 완료: 신규 ${added}명 · 갱신 ${updated}명`, 'success');
-    if (supabaseClient && isCloudConnected) void loadCloudState();
   } catch (error) {
     console.error('보건증 엑셀 등록 실패:', error);
-    showToast(`보건증 엑셀 등록에 실패했습니다: ${error?.message || '파일 형식을 확인하세요.'}`, 'error');
+    const detail = error?.message || '파일 형식 또는 네트워크 연결을 확인하세요.';
+    const resumeHint = added || updated ? ' 이미 저장된 항목은 유지되며, 같은 파일을 다시 올리면 중복 없이 이어서 처리됩니다.' : '';
+    showToast(`보건증 엑셀 등록에 실패했습니다: ${detail}${resumeHint}`, 'error');
   } finally {
     event.target.value = '';
   }
