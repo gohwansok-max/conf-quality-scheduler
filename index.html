@@ -380,7 +380,7 @@
               <option value="expires_desc">늦은순</option>
             </select>
           </label>
-          <span class="basis-full text-xs text-slate-400 dark:text-slate-500">양식 다운로드 → 작성 → 업로드 순서로 사용하세요. 동일 이름은 발급·만료일을 갱신하고, 첨부 파일은 유지합니다.</span>
+          <span class="basis-full text-xs text-slate-400 dark:text-slate-500">양식 다운로드 → 작성 → 업로드 순서로 사용하세요. 동일 데이터 행은 제외하고, 파일 내 같은 이름은 만료일·발급일 최신값으로 통합합니다. 기존 첨부 파일·알림·재직 상태는 유지합니다.</span>
         </div>
 
         <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
@@ -870,6 +870,6 @@
   <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
 
   <script src="runtime-config.js"></script>
-  <script src="app.js?v=202608260430"></script>
+  <script src="app.js?v=202608260500"></script>
 </body>
 </html>
