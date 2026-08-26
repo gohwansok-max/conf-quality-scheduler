@@ -2108,6 +2108,76 @@ function parseHealthExcelWorkbook(workbook) {
   return records;
 }
 
+function normalizeHealthExcelText(value) {
+  return String(value ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function getHealthExcelNameKey(value) {
+  return normalizeHealthExcelText(value).toLocaleLowerCase('ko-KR');
+}
+
+function getHealthExcelRecordSignature(record) {
+  return [
+    getHealthExcelNameKey(record.employeeName),
+    normalizeHealthExcelText(record.department),
+    String(record.issuedAt || ''),
+    String(record.expiresAt || ''),
+    normalizeHealthExcelText(record.memo)
+  ].join('\u0001');
+}
+
+function pickPreferredHealthExcelRecord(current, candidate) {
+  const useCandidate = String(candidate.expiresAt || '') > String(current.expiresAt || '')
+    || (String(candidate.expiresAt || '') === String(current.expiresAt || '')
+      && String(candidate.issuedAt || '') >= String(current.issuedAt || ''));
+  const preferred = useCandidate ? candidate : current;
+  const fallback = useCandidate ? current : candidate;
+  return {
+    ...preferred,
+    employeeName: normalizeHealthExcelText(preferred.employeeName),
+    department: normalizeHealthExcelText(preferred.department) || normalizeHealthExcelText(fallback.department),
+    memo: normalizeHealthExcelText(preferred.memo) || normalizeHealthExcelText(fallback.memo)
+  };
+}
+
+function consolidateHealthExcelRecords(records) {
+  const exactSignatures = new Set();
+  const byName = new Map();
+  let duplicateRows = 0;
+  let mergedNames = 0;
+
+  records.forEach(record => {
+    const normalizedRecord = {
+      ...record,
+      employeeName: normalizeHealthExcelText(record.employeeName),
+      department: normalizeHealthExcelText(record.department),
+      memo: normalizeHealthExcelText(record.memo)
+    };
+    const signature = getHealthExcelRecordSignature(normalizedRecord);
+    if (exactSignatures.has(signature)) {
+      duplicateRows += 1;
+      return;
+    }
+    exactSignatures.add(signature);
+
+    const nameKey = getHealthExcelNameKey(normalizedRecord.employeeName);
+    const previous = byName.get(nameKey);
+    if (previous) {
+      mergedNames += 1;
+      byName.set(nameKey, pickPreferredHealthExcelRecord(previous, normalizedRecord));
+      return;
+    }
+    byName.set(nameKey, normalizedRecord);
+  });
+
+  return { records: [...byName.values()], duplicateRows, mergedNames };
+}
+
+function formatHealthDepartmentRole(department) {
+  const value = normalizeHealthExcelText(department);
+  return `부서/직책: ${value || '미지정'}`;
+}
+
 function waitForHealthCloudRetry(milliseconds) {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
@@ -2154,21 +2224,29 @@ async function handleHealthExcelImport(event) {
   try {
     const fileData = await file.arrayBuffer();
     const workbook = XLSX.read(fileData, { type: 'array', cellDates: true });
-    const records = parseHealthExcelWorkbook(workbook);
-    if (records.length === 0) throw new Error('이름과 검진일 열을 찾지 못했습니다.');
+    const parsedRecords = parseHealthExcelWorkbook(workbook);
+    if (parsedRecords.length === 0) throw new Error('이름과 검진일 열을 찾지 못했습니다.');
 
-    const existingByName = new Map(appState.healthCerts.map(c => [String(c.employeeName || '').trim(), c]));
-    const updateCount = records.filter(record => existingByName.has(record.employeeName)).length;
-    const message = `${records.length}명의 보건증 정보를 읽었습니다.\n신규 ${records.length - updateCount}명 등록, 기존 ${updateCount}명은 발급일·만료일·부서를 갱신합니다.\n첨부 파일과 알림 설정은 기존 값이 유지됩니다.\n계속하시겠습니까?`;
+    const { records, duplicateRows, mergedNames } = consolidateHealthExcelRecords(parsedRecords);
+    if (records.length === 0) throw new Error('중복을 제외한 유효 보건증 정보가 없습니다.');
+
+    const existingByName = new Map(appState.healthCerts.map(c => [getHealthExcelNameKey(c.employeeName), c]));
+    const updateCount = records.filter(record => existingByName.has(getHealthExcelNameKey(record.employeeName))).length;
+    const summary = [
+      `원본 ${parsedRecords.length}행 → 유효 ${records.length}명`,
+      duplicateRows ? `파일 내 동일 데이터 ${duplicateRows}행 제외` : '',
+      mergedNames ? `같은 이름의 다른 일정 ${mergedNames}건 통합(만료일·발급일 최신값 적용)` : ''
+    ].filter(Boolean).join('\n');
+    const message = `${summary}\n\n신규 ${records.length - updateCount}명 등록, 기존 ${updateCount}명은 발급일·만료일·부서를 갱신합니다.\n첨부 파일과 알림·재직 상태는 기존 값이 유지됩니다.\n\n동명이인은 동일 직원으로 처리되므로, 다른 사람이라면 이름을 구분해 다시 업로드하세요.\n계속하시겠습니까?`;
     if (!confirm(message)) return;
 
     const cloudMode = Boolean(supabaseClient && isCloudConnected);
     if (cloudMode) {
-      const newRecords = records.filter(record => !existingByName.has(record.employeeName));
+      const newRecords = records.filter(record => !existingByName.has(getHealthExcelNameKey(record.employeeName)));
       // 이미 동일한 일정이 저장된 대상은 UPDATE 요청을 보내지 않습니다.
       // 중간 연결 장애로 전체 일괄 등록이 멈추는 문제를 피하고 재등록도 안전해집니다.
       const existingRecords = records.filter(record => {
-        const existing = existingByName.get(record.employeeName);
+        const existing = existingByName.get(getHealthExcelNameKey(record.employeeName));
         return existing && hasHealthExcelRecordChanges(existing, record);
       });
 
@@ -2195,7 +2273,7 @@ async function handleHealthExcelImport(event) {
       // 기존 대상도 단일 요청으로 갱신합니다. 파일·알림·재직 상태는 보내지 않아 기존 값을 보존합니다.
       if (existingRecords.length > 0) {
         const changedRows = existingRecords.map(record => {
-          const existing = existingByName.get(record.employeeName);
+          const existing = existingByName.get(getHealthExcelNameKey(record.employeeName));
           return {
             id: existing.id,
             employee_name: record.employeeName,
@@ -2243,7 +2321,11 @@ async function handleHealthExcelImport(event) {
     }
 
     const unchanged = records.length - added - updated;
-    showToast(`보건증 엑셀 등록 완료: 신규 ${added}명 · 갱신 ${updated}명${unchanged ? ` · 기존 동일 ${unchanged}명` : ''}`, 'success');
+    const duplicateSummary = [
+      duplicateRows ? `파일 중복 ${duplicateRows}행 제외` : '',
+      mergedNames ? `동일 이름 ${mergedNames}건 통합` : ''
+    ].filter(Boolean).join(' · ');
+    showToast(`보건증 엑셀 등록 완료: 신규 ${added}명 · 갱신 ${updated}명${unchanged ? ` · 기존 동일 ${unchanged}명` : ''}${duplicateSummary ? ` · ${duplicateSummary}` : ''}`, 'success');
   } catch (error) {
     console.error('보건증 엑셀 등록 실패:', error);
     const detail = error?.message || '파일 형식 또는 네트워크 연결을 확인하세요.';
@@ -2629,7 +2711,7 @@ async function testTelegramNotification() {
     .filter(c => c.employmentStatus !== 'inactive' && c.alertStatus !== 'paused' && isHealthAlertDue(c.dDay))
     .sort((a, b) => a.dDay - b.dDay);
   const healthLines = healthDue.length
-    ? healthDue.map((c, index) => `${index + 1}. ${c.employeeName} · ${c.department || '부서 미지정'} · ${c.dDay < 0 ? `${Math.abs(c.dDay)}일 초과` : `D-${c.dDay}`} · 만료 ${c.expiresAt}`).join('\n')
+    ? healthDue.map((c, index) => `${index + 1}. ${c.employeeName}\n   ${formatHealthDepartmentRole(c.department)} · ${c.dDay < 0 ? `${Math.abs(c.dDay)}일 초과` : `D-${c.dDay}`} · 만료 ${c.expiresAt}`).join('\n')
     : '대상 없음';
 
   const msgText = `🧪 [코엔에프 품질·보건증 시험 알림]\n` +
@@ -2708,7 +2790,7 @@ async function installPwaApp() {
 function registerPwa() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=202608260430', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=202608260500', { scope: './' })
       .then(() => console.info('PWA 서비스 워커가 등록되었습니다.'))
       .catch(error => console.warn('PWA 서비스 워커 등록 실패:', error));
   });
