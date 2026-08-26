@@ -2553,7 +2553,7 @@ async function installPwaApp() {
 function registerPwa() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=202608260155', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=202608260230', { scope: './' })
       .then(() => console.info('PWA 서비스 워커가 등록되었습니다.'))
       .catch(error => console.warn('PWA 서비스 워커 등록 실패:', error));
   });
