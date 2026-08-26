@@ -16,6 +16,15 @@ const CHAT_IDS = [...new Set(
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://hooaeqywrdihninxnvtb.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_3iDGX80MZlMhAPCthcBKDA_TDUHDwhz';
 const DRY_RUN = process.env.DRY_RUN === 'true';
+const DEFAULT_HEALTH_ALERT_DAYS = [30, 7, 1];
+
+function normalizeHealthAlertDays(value) {
+  const source = Array.isArray(value) ? value : String(value || '').split(/[\s,;/]+/);
+  const days = source
+    .map(item => Number(item))
+    .filter(day => Number.isInteger(day) && day >= 0 && day <= 365);
+  return [...new Set(days.length ? days : DEFAULT_HEALTH_ALERT_DAYS)].sort((a, b) => b - a);
+}
 
 if ((!BOT_TOKEN || CHAT_IDS.length === 0) && !DRY_RUN) {
   console.error('❌ 오류: TELEGRAM_BOT_TOKEN과 TELEGRAM_CHAT_ID 또는 TELEGRAM_CHAT_IDS를 설정하세요.');
@@ -91,11 +100,12 @@ async function run() {
   const todayStr = getTodayKstStr();
 
   // 클라우드 데이터 로드
-  const [cloudTypes, cloudProducts, cloudHealth, cloudCertificates] = await Promise.all([
+  const [cloudTypes, cloudProducts, cloudHealth, cloudCertificates, cloudSettings] = await Promise.all([
     fetchSupabase('quality_types'),
     fetchSupabase('quality_products'),
     fetchSupabase('quality_health_certs'),
-    fetchSupabase('quality_certificates')
+    fetchSupabase('quality_certificates'),
+    fetchSupabase('quality_settings')
   ]);
 
   let types = cloudTypes || [
@@ -123,6 +133,9 @@ async function run() {
     { id: 4, employee_name: '최개발', department: '연구소', issued_at: '2026-03-20', expires_at: '2027-03-20', employment_status: 'active', alert_status: 'active' }
   ];
   const certificates = cloudCertificates || [];
+  const storedHealthAlertDays = (cloudSettings || []).find(setting => setting.key === 'health_alert_days')?.value;
+  const healthAlertDays = normalizeHealthAlertDays(storedHealthAlertDays || process.env.HEALTH_ALERT_DAYS || DEFAULT_HEALTH_ALERT_DAYS);
+  const healthAlertDaysLabel = healthAlertDays.map(day => `D-${day}`).join(' · ');
 
   const overdueProducts = [];
   const urgentProducts = [];
@@ -165,7 +178,7 @@ async function run() {
   healthCerts.forEach(c => {
     if (c.employment_status === 'inactive' || c.alert_status === 'paused') return;
     const dDay = calcDDay(c.expires_at, todayStr);
-    if (dDay !== null && dDay <= 30) {
+    if (dDay !== null && (dDay < 0 || healthAlertDays.includes(dDay))) {
       warningHealthCerts.push({ name: c.employee_name, dept: c.department || '미지정', expiresAt: c.expires_at, dDay });
     }
   });
@@ -207,7 +220,7 @@ async function run() {
   }
 
   if (warningHealthCerts.length > 0) {
-    message += `👤 <b>보건증 만료 주의 · ${warningHealthCerts.length}명</b>\n`;
+    message += `👤 <b>보건증 만료 알림 (${healthAlertDaysLabel}) · ${warningHealthCerts.length}명</b>\n`;
     warningHealthCerts.forEach((c, idx) => {
       const statusText = c.dDay < 0 ? `${Math.abs(c.dDay)}일 초과` : `D-${c.dDay}`;
       message += `${idx + 1}. <b>${escapeHtml(c.name)}</b> · ${escapeHtml(c.dept)} · ${statusText}\n`;
