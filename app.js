@@ -619,6 +619,134 @@ function resetDashboardFilters() {
   renderDashboard();
 }
 
+function getHealthMonthlyExpiryStats(monthCount = 13) {
+  const [year, month] = getTodayKstStr().split('-').map(Number);
+  const months = Array.from({ length: monthCount }, (_, index) => {
+    const date = new Date(year, month - 1 + index, 1);
+    const monthNumber = String(date.getMonth() + 1).padStart(2, '0');
+    return {
+      key: `${date.getFullYear()}-${monthNumber}`,
+      label: `${date.getMonth() + 1}월`,
+      fullLabel: `${date.getFullYear()}년 ${date.getMonth() + 1}월`,
+      overdue: 0,
+      urgent: 0,
+      safe: 0,
+      paused: 0,
+      inactive: 0,
+      total: 0
+    };
+  });
+
+  const overdueBucket = {
+    key: 'overdue',
+    label: '초과',
+    fullLabel: '만료 초과',
+    overdue: 0,
+    urgent: 0,
+    safe: 0,
+    paused: 0,
+    inactive: 0,
+    total: 0
+  };
+  const computedHealth = appState.healthCerts.map(getHealthCertComputed);
+  const summary = {
+    registered: computedHealth.length,
+    active: computedHealth.filter(item => item.employmentStatus !== 'inactive').length,
+    overdue: computedHealth.filter(item => item.status === 'overdue').length,
+    urgent: computedHealth.filter(item => item.status === 'urgent').length,
+    paused: computedHealth.filter(item => item.status === 'paused').length,
+    inactive: computedHealth.filter(item => item.status === 'inactive').length,
+    noExpiryDate: computedHealth.filter(item => !item.expiresAt).length
+  };
+
+  computedHealth.forEach(item => {
+    if (item.status === 'overdue') {
+      overdueBucket.overdue += 1;
+      overdueBucket.total += 1;
+      return;
+    }
+    if (!item.expiresAt || !/^\d{4}-\d{2}-\d{2}$/.test(item.expiresAt)) return;
+    const bucket = months.find(entry => entry.key === item.expiresAt.slice(0, 7));
+    if (!bucket) return;
+    const status = ['overdue', 'urgent', 'safe', 'paused', 'inactive'].includes(item.status) ? item.status : 'safe';
+    bucket[status] += 1;
+    bucket.total += 1;
+  });
+
+  return { entries: [overdueBucket, ...months], months, summary };
+}
+
+function renderHealthMonthlyExpiryChart() {
+  const chart = document.getElementById('health-expiry-monthly-chart');
+  if (!chart) return;
+
+  const { entries, summary } = getHealthMonthlyExpiryStats();
+  const maxCount = Math.max(1, ...entries.map(item => item.total));
+  const statusMeta = [
+    { key: 'overdue', label: '만료 초과', color: 'bg-red-500', text: 'text-red-700 dark:text-red-300' },
+    { key: 'urgent', label: '알림 구간', color: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-300' },
+    { key: 'safe', label: '정상', color: 'bg-emerald-500', text: 'text-emerald-700 dark:text-emerald-300' },
+    { key: 'paused', label: '알림 중지', color: 'bg-violet-500', text: 'text-violet-700 dark:text-violet-300' },
+    { key: 'inactive', label: '퇴직·제외', color: 'bg-slate-400', text: 'text-slate-600 dark:text-slate-300' }
+  ];
+
+  const metricCard = (label, value, accentClass, description) => `
+    <div class="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/50">
+      <div class="flex items-center justify-between gap-2 text-[11px] font-semibold ${accentClass}">
+        <span>${label}</span><span class="text-base leading-none">${value}명</span>
+      </div>
+      <p class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">${description}</p>
+    </div>`;
+
+  chart.innerHTML = `
+    <div class="app-card p-5 space-y-4">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 class="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white">
+            <i data-lucide="chart-column-big" class="h-5 w-5 text-blue-500"></i>
+            <span>보건증 월별 만료 현황</span>
+          </h2>
+          <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">현재 등록된 직원의 만료일을 기준으로 이번 달을 포함한 향후 12개월을 집계했습니다. 상태는 오늘 기준으로 계산됩니다.</p>
+        </div>
+        <button type="button" onclick="switchTab('health')" class="inline-flex w-fit items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 dark:border-blue-900/70 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-900/50">
+          <i data-lucide="clipboard-check" class="h-3.5 w-3.5"></i><span>보건증 관리</span>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        ${metricCard('등록 인원', summary.registered, 'text-slate-700 dark:text-slate-200', `재직 ${summary.active}명 · 퇴직·제외 ${summary.inactive}명`)}
+        ${metricCard('만료 초과', summary.overdue, 'text-red-700 dark:text-red-300', '즉시 갱신 확인 필요')}
+        ${metricCard('알림 구간', summary.urgent, 'text-amber-700 dark:text-amber-300', `${getHealthAlertDaysLabel()} 기준`)}
+        ${metricCard('알림 중지', summary.paused, 'text-violet-700 dark:text-violet-300', '상태 전환으로 재개 가능')}
+        ${metricCard('만료일 미입력', summary.noExpiryDate, 'text-slate-700 dark:text-slate-300', '등록 정보 확인 필요')}
+      </div>
+
+      <div class="rounded-xl border border-slate-100 bg-slate-50/50 p-3 sm:p-4 dark:border-slate-800 dark:bg-slate-900/35">
+        <div class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+          ${statusMeta.map(meta => `<span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full ${meta.color}"></span>${meta.label}</span>`).join('')}
+          <span class="ml-auto text-slate-400 dark:text-slate-500">만료 초과 + 이번 달 포함 향후 12개월</span>
+        </div>
+        <div class="flex min-h-48 items-end gap-1.5 sm:gap-3" role="img" aria-label="보건증 월별 만료 상태 통계 차트">
+          ${entries.map(item => {
+            const segments = statusMeta.filter(meta => item[meta.key] > 0).map(meta => {
+              const height = Math.max(8, Math.round((item[meta.key] / maxCount) * 128));
+              return `<div class="w-full ${meta.color} first:rounded-t-md last:rounded-b-md" style="height:${height}px" title="${item.fullLabel} · ${meta.label} ${item[meta.key]}명"></div>`;
+            }).join('');
+            const details = statusMeta.filter(meta => item[meta.key] > 0).map(meta => `${meta.label} ${item[meta.key]}명`).join(', ') || '만료 예정 없음';
+            return `
+              <div class="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+                <div class="flex h-36 w-full max-w-10 flex-col-reverse justify-start overflow-hidden rounded-md bg-slate-200/80 dark:bg-slate-800" title="${item.fullLabel}: ${details}">
+                  ${segments || '<div class="m-auto h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700"></div>'}
+                </div>
+                <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-300">${item.label}</span>
+                <span class="-mt-1 text-[10px] text-slate-400 dark:text-slate-500">${item.total}명</span>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
 function renderDashboard() {
   const tbody = document.getElementById('dashboard-table-body');
   const mobileList = document.getElementById('dashboard-mobile-list');
@@ -644,6 +772,7 @@ function renderDashboard() {
     typeSelect.value = Array.from(typeSelect.options).some(option => option.value === previousType) ? previousType : 'all';
   }
   const computedHealth = appState.healthCerts.map(getHealthCertComputed);
+  renderHealthMonthlyExpiryChart();
   updateDashboardQuickFilters();
 
   const totalCount = computedProducts.length;
@@ -2790,7 +2919,7 @@ async function installPwaApp() {
 function registerPwa() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=202608260500', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=202608260520', { scope: './' })
       .then(() => console.info('PWA 서비스 워커가 등록되었습니다.'))
       .catch(error => console.warn('PWA 서비스 워커 등록 실패:', error));
   });
