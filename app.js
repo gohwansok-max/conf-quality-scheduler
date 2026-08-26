@@ -2010,18 +2010,30 @@ function isTransientHealthCloudError(error) {
 
 async function runHealthCloudRequest(request, label) {
   let lastError;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  // 모바일·PWA 환경의 일시적 연결 끊김을 고려해 충분한 간격으로 재시도합니다.
+  const retryDelays = [700, 1500, 3000, 5000];
+  for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
     try {
       const response = await request();
       if (response?.error) throw response.error;
       return response;
     } catch (error) {
       lastError = error;
-      if (!isTransientHealthCloudError(error) || attempt === 3) break;
-      await waitForHealthCloudRetry(500 * attempt);
+      if (!isTransientHealthCloudError(error) || attempt === retryDelays.length) break;
+      await waitForHealthCloudRetry(retryDelays[attempt]);
     }
   }
   throw new Error(`${label} 저장에 실패했습니다. ${lastError?.message || '네트워크 연결을 확인한 뒤 다시 시도하세요.'}`);
+}
+
+function hasHealthExcelRecordChanges(existing, incoming) {
+  if (!existing) return true;
+  return [
+    [existing.department, incoming.department],
+    [existing.issuedAt, incoming.issuedAt],
+    [existing.expiresAt, incoming.expiresAt],
+    [existing.memo, incoming.memo]
+  ].some(([before, after]) => String(before || '').trim() !== String(after || '').trim());
 }
 
 async function handleHealthExcelImport(event) {
@@ -2044,7 +2056,12 @@ async function handleHealthExcelImport(event) {
     const cloudMode = Boolean(supabaseClient && isCloudConnected);
     if (cloudMode) {
       const newRecords = records.filter(record => !existingByName.has(record.employeeName));
-      const existingRecords = records.filter(record => existingByName.has(record.employeeName));
+      // 이미 동일한 일정이 저장된 대상은 UPDATE 요청을 보내지 않습니다.
+      // 중간 연결 장애로 전체 일괄 등록이 멈추는 문제를 피하고 재등록도 안전해집니다.
+      const existingRecords = records.filter(record => {
+        const existing = existingByName.get(record.employeeName);
+        return existing && hasHealthExcelRecordChanges(existing, record);
+      });
 
       // 신규 행은 한 번에 저장해 네트워크 요청 수와 실패 가능성을 낮춥니다.
       if (newRecords.length > 0) {
@@ -2066,20 +2083,24 @@ async function handleHealthExcelImport(event) {
         added = newRecords.length;
       }
 
-      // 기존 대상은 첨부 파일·알림·재직 상태를 보존한 채 일정 정보만 갱신합니다.
-      for (const record of existingRecords) {
-        const existing = existingByName.get(record.employeeName);
-        await runHealthCloudRequest(
-          () => supabaseClient.from('quality_health_certs').update({
+      // 기존 대상도 단일 요청으로 갱신합니다. 파일·알림·재직 상태는 보내지 않아 기존 값을 보존합니다.
+      if (existingRecords.length > 0) {
+        const changedRows = existingRecords.map(record => {
+          const existing = existingByName.get(record.employeeName);
+          return {
+            id: existing.id,
             employee_name: record.employeeName,
             department: record.department,
             issued_at: record.issuedAt,
             expires_at: record.expiresAt,
             memo: record.memo
-          }).eq('id', existing.id),
-          `${record.employeeName} 보건증`
+          };
+        });
+        await runHealthCloudRequest(
+          () => supabaseClient.from('quality_health_certs').upsert(changedRows, { onConflict: 'id' }),
+          '기존 보건증 일괄'
         );
-        updated += 1;
+        updated = existingRecords.length;
       }
 
       await loadCloudState();
@@ -2112,7 +2133,8 @@ async function handleHealthExcelImport(event) {
       renderCurrentTab();
     }
 
-    showToast(`보건증 엑셀 등록 완료: 신규 ${added}명 · 갱신 ${updated}명`, 'success');
+    const unchanged = records.length - added - updated;
+    showToast(`보건증 엑셀 등록 완료: 신규 ${added}명 · 갱신 ${updated}명${unchanged ? ` · 기존 동일 ${unchanged}명` : ''}`, 'success');
   } catch (error) {
     console.error('보건증 엑셀 등록 실패:', error);
     const detail = error?.message || '파일 형식 또는 네트워크 연결을 확인하세요.';
