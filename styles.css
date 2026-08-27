@@ -1286,3 +1286,40 @@ tr.table-row-hover:hover {
     display: none !important;
   }
 }
+
+
+/* 성적서별 제조일·검사 예정일 입력 */
+.certificate-schedule-list { display: grid; gap: 0.55rem; max-height: 23rem; overflow-y: auto; padding-right: 0.2rem; }
+.certificate-schedule-row { display: grid; grid-template-columns: minmax(12rem, 1.7fr) minmax(8rem, 1fr) minmax(8rem, 1fr) minmax(8rem, 1fr); gap: 0.55rem; align-items: end; padding: 0.65rem; border: 1px solid #dbeafe; border-radius: 0.65rem; background: #fff; }
+.certificate-schedule-title { display: grid; min-width: 0; gap: 0.2rem; align-self: center; }
+.certificate-schedule-title strong, .certificate-schedule-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.certificate-schedule-title strong { color: #1e3a8a; font-size: 0.7rem; }
+.certificate-schedule-title span { color: #64748b; font-size: 0.62rem; }
+.certificate-schedule-row label { display: grid; gap: 0.25rem; min-width: 0; }
+.certificate-schedule-row label > span { color: #475569; font-size: 0.62rem; font-weight: 800; }
+.certificate-schedule-row input, .certificate-schedule-row select { width: 100%; min-width: 0; border: 1px solid #cbd5e1; border-radius: 0.42rem; background: #fff; color: #1e293b; font-size: 0.68rem; padding: 0.45rem 0.5rem; }
+.certificate-schedule-row input[readonly] { border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; font-weight: 800; }
+.certificate-schedule-row p { grid-column: 2 / -1; margin: -0.15rem 0 0; color: #64748b; font-size: 0.6rem; }
+.dark .certificate-schedule-row { border-color: #1e3a8a; background: #0f172a; }
+.dark .certificate-schedule-title strong { color: #bfdbfe; }
+.dark .certificate-schedule-title span, .dark .certificate-schedule-row label > span, .dark .certificate-schedule-row p { color: #94a3b8; }
+.dark .certificate-schedule-row input, .dark .certificate-schedule-row select { border-color: #475569; background: #1e293b; color: #e2e8f0; }
+.dark .certificate-schedule-row input[readonly] { border-color: #1d4ed8; background: #172554; color: #bfdbfe; }
+@media (max-width: 767px), (pointer: coarse) {
+  .certificate-schedule-list { max-height: 21rem; }
+  .certificate-schedule-row { grid-template-columns: 1fr 1fr; gap: 0.5rem; padding: 0.6rem; }
+  .certificate-schedule-title { grid-column: 1 / -1; }
+  .certificate-schedule-row p { grid-column: 1 / -1; margin: 0; }
+  .certificate-schedule-row input, .certificate-schedule-row select { min-height: 2.35rem; font-size: 0.72rem; }
+}
+
+
+/* 작은 화면에서 탭 메뉴의 넓이가 문서 폭을 확장하지 않도록 제한 */
+#tab-nav-container { width: 100%; min-width: 0; max-width: 100%; }
+@media (max-width: 639px) {
+  #tab-nav-container { overflow-x: auto; overscroll-behavior-x: contain; }
+}
+
+@media (max-width: 639px) {
+  html { overflow-x: hidden; }
+}

@@ -164,6 +164,61 @@ function getCertificateManufactureDate(certificate) {
   return getCertificateClassification(certificate).manufactureDate || '';
 }
 
+function getCertificateScheduledInspectionDate(certificate) {
+  const metadata = getCertificateMeta(certificate?.id);
+  if (metadata.scheduledInspectionDate) return metadata.scheduledInspectionDate;
+  const classification = getCertificateClassification(certificate);
+  if (!classification.type || !classification.manufactureDate) return '';
+  return calcNextDeadline(classification.manufactureDate, Number(classification.type.intervalMonths || 0));
+}
+
+function suggestCertificateTypeId(certificate) {
+  const normalizedName = String(certificate?.fileName || '').toLowerCase().replace(/[·\s]/g, '');
+  const matchedType = appState.types.find(type => {
+    const normalizedType = String(type.name || '').toLowerCase().replace(/[·\s]/g, '');
+    return normalizedType && normalizedName.includes(normalizedType);
+  });
+  if (matchedType) return Number(matchedType.id);
+  if (normalizedName.includes('과채주스')) return Number(appState.types.find(type => String(type.name).includes('과·채'))?.id || 0);
+  return 0;
+}
+
+function updateCertificateSchedulePreview(certificateId) {
+  const typeId = Number(document.getElementById(`cert-schedule-type-${certificateId}`)?.value || 0);
+  const manufactureDate = document.getElementById(`cert-schedule-manufacture-${certificateId}`)?.value || '';
+  const output = document.getElementById(`cert-schedule-due-${certificateId}`);
+  const type = appState.types.find(item => Number(item.id) === typeId);
+  const scheduledDate = type && manufactureDate ? calcNextDeadline(manufactureDate, Number(type.intervalMonths || 0)) : '';
+  if (output) output.value = scheduledDate || '';
+  const state = document.getElementById(`cert-schedule-state-${certificateId}`);
+  if (state) state.textContent = scheduledDate ? `${type.name} · ${type.intervalMonths}개월 주기` : '식품유형과 제조일을 입력하세요.';
+}
+
+function buildCertificateScheduleRows() {
+  const rows = document.getElementById('bulk-cert-schedule-list');
+  if (!rows) return;
+  const typeOptions = appState.types.map(type => `<option value="${type.id}">${escapeHtml(type.name)} · ${type.intervalMonths}개월</option>`).join('');
+  rows.innerHTML = appState.certificates.map(certificate => {
+    const classification = getCertificateClassification(certificate);
+    const typeId = classification.typeId || suggestCertificateTypeId(certificate) || '';
+    const manufactureDate = classification.manufactureDate || '';
+    const scheduledDate = getCertificateScheduledInspectionDate(certificate);
+    const description = `${certificate.certNumber || '번호 미입력'} · 검사일 ${formatCertificateDate(certificate.inspectionDate)}`;
+    return `<article class="certificate-schedule-row">
+      <div class="certificate-schedule-title"><strong>${escapeHtml(description)}</strong><span title="${escapeHtml(certificate.fileName || '')}">${escapeHtml(certificate.fileName || '파일명 없음')}</span></div>
+      <label><span>식품유형 *</span><select id="cert-schedule-type-${certificate.id}" onchange="updateCertificateSchedulePreview(${certificate.id})"><option value="">선택</option>${typeOptions}</select></label>
+      <label><span>제조일 *</span><input id="cert-schedule-manufacture-${certificate.id}" type="date" value="${manufactureDate}" onchange="updateCertificateSchedulePreview(${certificate.id})"></label>
+      <label><span>검사 예정일 (자동)</span><input id="cert-schedule-due-${certificate.id}" type="text" value="${scheduledDate}" readonly></label>
+      <p id="cert-schedule-state-${certificate.id}">${scheduledDate && classification.type ? `${escapeHtml(classification.type.name)} · ${classification.type.intervalMonths}개월 주기` : '파일명 기준 유형이 제안될 수 있으며, 제조기록 기준으로 확인하세요.'}</p>
+    </article>`;
+  }).join('');
+  appState.certificates.forEach(certificate => {
+    const select = document.getElementById(`cert-schedule-type-${certificate.id}`);
+    if (select) select.value = String(getCertificateClassification(certificate).typeId || suggestCertificateTypeId(certificate) || '');
+    updateCertificateSchedulePreview(certificate.id);
+  });
+}
+
 async function saveCertificateMetadataMap(nextMap) {
   const value = JSON.stringify({ version: 1, updatedAt: new Date().toISOString(), records: nextMap });
   appState.settings = { ...appState.settings, [CERTIFICATE_METADATA_KEY]: value };
@@ -262,6 +317,8 @@ function renderCertificateCalendar(monthValue) {
     if (summary.nextInspectionDate) addEvent(summary.nextInspectionDate, { kind: 'due', label: `${summary.type.name} 검사 예정` });
     summary.certificates.forEach(certificate => {
       if (certificate.inspectionDate) addEvent(certificate.inspectionDate, { kind: 'done', label: `${summary.type.name} 성적서` });
+      const scheduledDate = getCertificateScheduledInspectionDate(certificate);
+      if (scheduledDate) addEvent(scheduledDate, { kind: 'due', label: `${summary.type.name} 예정 · ${certificate.certNumber || '성적서'}` });
     });
   });
 
@@ -355,10 +412,44 @@ function updateBulkCertificateActionHelp() {
   const action = document.getElementById('bulk-cert-action')?.value;
   const fileWrap = document.getElementById('bulk-cert-file-wrap');
   const classificationWrap = document.getElementById('bulk-cert-classification-wrap');
+  const selectionToolbar = document.getElementById('bulk-cert-selection-toolbar');
+  const list = document.getElementById('bulk-cert-list');
+  const scheduleWrap = document.getElementById('bulk-cert-schedule-wrap');
   const submit = document.getElementById('bulk-cert-submit');
+  const scheduleMode = action === 'schedule';
   if (fileWrap) fileWrap.classList.toggle('hidden', action !== 'attach');
-  if (classificationWrap) classificationWrap.classList.toggle('hidden', action === 'delete');
-  if (submit) submit.textContent = action === 'delete' ? '선택 성적서 삭제' : (action === 'classify' ? '유형·제조일 저장' : '파일 일괄 연결');
+  if (classificationWrap) classificationWrap.classList.toggle('hidden', action === 'delete' || scheduleMode);
+  if (selectionToolbar) selectionToolbar.classList.toggle('hidden', scheduleMode);
+  if (list) list.classList.toggle('hidden', scheduleMode);
+  if (scheduleWrap) scheduleWrap.classList.toggle('hidden', !scheduleMode);
+  if (scheduleMode) buildCertificateScheduleRows();
+  if (submit) submit.textContent = action === 'delete' ? '선택 성적서 삭제' : (action === 'classify' ? '유형·제조일 저장' : (scheduleMode ? '7건 검사 예정일 저장' : '파일 일괄 연결'));
+}
+
+async function saveCertificateSchedules() {
+  if (!supabaseClient || !isCloudConnected) throw new Error('클라우드 연결 후 검사 예정일을 저장하세요.');
+  const metadata = getCertificateMetadataMap();
+  const invalidRecords = [];
+  appState.certificates.forEach(certificate => {
+    const typeId = Number(document.getElementById(`cert-schedule-type-${certificate.id}`)?.value || 0);
+    const manufactureDate = document.getElementById(`cert-schedule-manufacture-${certificate.id}`)?.value || '';
+    const type = appState.types.find(item => Number(item.id) === typeId);
+    if (!type || !manufactureDate) {
+      invalidRecords.push(certificate.certNumber || `ID ${certificate.id}`);
+      return;
+    }
+    metadata[String(certificate.id)] = {
+      ...(metadata[String(certificate.id)] || {}),
+      typeId,
+      manufactureDate,
+      scheduledInspectionDate: calcNextDeadline(manufactureDate, Number(type.intervalMonths || 0)),
+      source: '건별 제조일 입력',
+      updatedAt: new Date().toISOString()
+    };
+  });
+  if (invalidRecords.length) throw new Error(`식품유형 또는 제조일이 비어 있는 성적서가 ${invalidRecords.length}건 있습니다: ${invalidRecords.join(', ')}`);
+  await saveCertificateMetadataMap(metadata);
+  return appState.certificates.length;
 }
 
 async function handleBulkCertificateMaintenance(event) {
@@ -370,7 +461,7 @@ async function handleBulkCertificateMaintenance(event) {
   const typeId = Number(document.getElementById('bulk-cert-type-id').value || 0);
   const manufactureDate = document.getElementById('bulk-cert-manufacture-date').value;
   const files = [...document.getElementById('bulk-cert-files').files];
-  if (!selectedIds.length) return showToast('처리할 성적서를 하나 이상 선택하세요.', 'error');
+  if (action !== 'schedule' && !selectedIds.length) return showToast('처리할 성적서를 하나 이상 선택하세요.', 'error');
   if (!supabaseClient || !isCloudConnected) return showToast('클라우드 연결 후 일괄 정리를 실행하세요.', 'error');
   if (action === 'delete' && !confirm(`선택한 ${selectedIds.length}건의 성적서 정보를 삭제하시겠습니까? 파일은 저장소에 남을 수 있습니다.`)) return;
   if (action === 'classify' && (!typeId || !manufactureDate)) return showToast('유형과 기준 제조일을 모두 입력하세요.', 'error');
@@ -379,6 +470,14 @@ async function handleBulkCertificateMaintenance(event) {
   isSavingCertificate = true;
   setCertificateSaveInProgress(form, true, '일괄 처리 중...');
   try {
+    if (action === 'schedule') {
+      const savedCount = await saveCertificateSchedules();
+      renderCertificates();
+      await loadCloudState();
+      closeModal('modal-bulk-cert-maintenance');
+      showToast(`${savedCount}건의 제조일 기준 검사 예정일을 저장했습니다.`, 'success');
+      return;
+    }
     if (action === 'delete') {
       const { error } = await supabaseClient.from('quality_certificates').delete().in('id', selectedIds);
       if (error) throw error;
@@ -1576,11 +1675,12 @@ function renderCertificates() {
     const productName = classification.product ? classification.product.name : '유형 공통 / 제품 미연결';
     const typeName = classification.type?.name || '유형 미분류';
     const manufactureDate = classification.manufactureDate || '기준일 미입력';
+    const scheduledInspectionDate = getCertificateScheduledInspectionDate(c) || '자동 설정 대기';
     return `
       <tr class="table-row-hover transition">
         <td class="py-3 px-4 font-mono font-bold text-blue-600 dark:text-blue-400"><span class="table-text-one-line" title="${escapeHtml(c.certNumber || '-')}">${escapeHtml(c.certNumber || '-')}</span></td>
         <td class="py-3 px-4 font-medium text-slate-900 dark:text-white"><span class="table-text-two-lines" title="${escapeHtml(productName)}">${escapeHtml(productName)}</span></td>
-        <td class="py-3 px-4"><span class="table-text-one-line" title="${escapeHtml(typeName)}">${escapeHtml(typeName)}</span><span class="block mt-0.5 text-[10px] text-slate-400">제조 기준 ${manufactureDate}</span></td>
+        <td class="py-3 px-4"><span class="table-text-one-line" title="${escapeHtml(typeName)}">${escapeHtml(typeName)}</span><span class="block mt-0.5 text-[10px] text-slate-400">제조 ${manufactureDate}</span><span class="block mt-0.5 text-[10px] font-semibold text-blue-500">예정 ${scheduledInspectionDate}</span></td>
         <td class="py-3 px-4">${c.inspectionDate || '-'}</td>
         <td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-medium"><span class="table-text-one-line" title="${escapeHtml(c.fileName || '성적서.pdf')}">${escapeHtml(c.fileName || '성적서.pdf')}</span></td>
         <td class="py-3 px-4 text-slate-400 text-xs">${c.createdAt ? c.createdAt.slice(0, 10) : '-'}</td>
@@ -1595,6 +1695,7 @@ function renderCertificates() {
       const productName = classification.product ? classification.product.name : '유형 공통 / 제품 미연결';
       const typeName = classification.type?.name || '유형 미분류';
       const manufactureDate = classification.manufactureDate || '기준일 미입력';
+      const scheduledInspectionDate = getCertificateScheduledInspectionDate(c) || '자동 설정 대기';
       const fileName = c.fileName || '성적서.pdf';
       const createdAt = c.createdAt ? c.createdAt.slice(0, 10) : '-';
       return `
@@ -1602,7 +1703,7 @@ function renderCertificates() {
           <div class="mobile-certificate-head"><span class="mobile-certificate-number" title="${escapeHtml(c.certNumber || '-')}">${escapeHtml(c.certNumber || '-')}</span><span class="mobile-certificate-date">등록 ${createdAt}</span></div>
           <h3 class="mobile-certificate-product" title="${escapeHtml(productName)}">${escapeHtml(productName)}</h3>
           <p class="mobile-certificate-file" title="${escapeHtml(fileName)}"><i data-lucide="paperclip" class="w-3.5 h-3.5"></i><span>${escapeHtml(fileName)}</span></p>
-          <div class="mobile-certificate-meta"><span>${escapeHtml(typeName)}</span><span>제조 ${manufactureDate}</span><span>검사 ${c.inspectionDate || '-'}</span></div>
+          <div class="mobile-certificate-meta"><span>${escapeHtml(typeName)}</span><span>제조 ${manufactureDate}</span><span>검사 ${c.inspectionDate || '-'}</span><span>예정 ${scheduledInspectionDate}</span></div>
           <div class="mobile-certificate-actions">${certificateFileActionMarkup(c, true)}<button type="button" onclick="deleteCert(${Number(c.id)})" class="mobile-certificate-delete" aria-label="성적서 삭제"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>
         </article>`;
     }).join('');
@@ -3525,7 +3626,7 @@ async function installPwaApp() {
 function registerPwa() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=202608270750', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=202608271010', { scope: './' })
       .then(() => console.info('PWA 서비스 워커가 등록되었습니다.'))
       .catch(error => console.warn('PWA 서비스 워커 등록 실패:', error));
   });
