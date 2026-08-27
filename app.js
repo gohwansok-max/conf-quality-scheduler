@@ -123,6 +123,321 @@ function certificateFileActionMarkup(certificate, mobile = false) {
   return `<button type="button" onclick="openCertificateViewer(${id})" class="${buttonClass}" title="성적서 열람"><i data-lucide="eye" class="w-3.5 h-3.5"></i><span>열람</span></button><button type="button" onclick="downloadCertFile(${id})" class="${compactClass}" title="성적서 다운로드"><i data-lucide="download" class="w-3.5 h-3.5"></i><span>다운로드</span></button>`;
 }
 
+
+// ==================== 성적서 유형·제조일 메타데이터 및 이력 시각화 ====================
+const CERTIFICATE_METADATA_KEY = 'certificate_metadata_v1';
+let certificateCalendarMonth = '';
+
+function getCertificateMetadataMap() {
+  const raw = appState.settings?.[CERTIFICATE_METADATA_KEY];
+  if (!raw) return {};
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const records = parsed?.records || parsed;
+    return records && typeof records === 'object' ? records : {};
+  } catch (error) {
+    console.warn('성적서 분류 메타데이터를 읽지 못했습니다.', error);
+    return {};
+  }
+}
+
+function getCertificateMeta(certificateId) {
+  return getCertificateMetadataMap()[String(certificateId)] || {};
+}
+
+function getCertificateClassification(certificate) {
+  const meta = getCertificateMeta(certificate?.id);
+  const product = appState.products.find(item => Number(item.id) === Number(certificate?.productId));
+  const typeId = Number(meta.typeId || product?.typeId || 0);
+  const type = appState.types.find(item => Number(item.id) === typeId) || null;
+  const manufactureDate = meta.manufactureDate || product?.lastManufactureDate || '';
+  const source = meta.source || (product ? '제품 연동' : '미분류');
+  return { typeId, type, manufactureDate, source, product };
+}
+
+function getCertificateTypeLabel(certificate) {
+  const classification = getCertificateClassification(certificate);
+  return classification.type?.name || '미분류';
+}
+
+function getCertificateManufactureDate(certificate) {
+  return getCertificateClassification(certificate).manufactureDate || '';
+}
+
+async function saveCertificateMetadataMap(nextMap) {
+  const value = JSON.stringify({ version: 1, updatedAt: new Date().toISOString(), records: nextMap });
+  appState.settings = { ...appState.settings, [CERTIFICATE_METADATA_KEY]: value };
+  saveLocalState();
+
+  if (!supabaseClient || !isCloudConnected) return;
+  const { data: existing, error: lookupError } = await supabaseClient
+    .from('quality_settings')
+    .select('key')
+    .eq('key', CERTIFICATE_METADATA_KEY)
+    .maybeSingle();
+  if (lookupError) throw lookupError;
+
+  const { error } = existing
+    ? await supabaseClient.from('quality_settings').update({ value }).eq('key', CERTIFICATE_METADATA_KEY)
+    : await supabaseClient.from('quality_settings').insert([{ key: CERTIFICATE_METADATA_KEY, value }]);
+  if (error) throw error;
+}
+
+async function updateCertificateMetadata(certificateId, patch) {
+  const map = getCertificateMetadataMap();
+  const current = map[String(certificateId)] || {};
+  map[String(certificateId)] = { ...current, ...patch, updatedAt: new Date().toISOString() };
+  await saveCertificateMetadataMap(map);
+}
+
+async function removeCertificateMetadata(certificateIds) {
+  const map = getCertificateMetadataMap();
+  certificateIds.forEach(id => delete map[String(id)]);
+  await saveCertificateMetadataMap(map);
+}
+
+function getMissingFileCertificates() {
+  return appState.certificates.filter(certificate => !getCertificateFileUrl(certificate));
+}
+
+function normalizeFileName(fileName) {
+  return String(fileName || '').trim().toLocaleLowerCase('ko-KR').replace(/\s+/g, ' ');
+}
+
+function getTypeInspectionSummaries() {
+  return appState.types.map(type => {
+    const products = appState.products.filter(product => Number(product.typeId) === Number(type.id));
+    const activeProducts = products.filter(product => product.productionStatus !== 'stopped');
+    const productDates = (activeProducts.length ? activeProducts : products)
+      .map(product => product.lastManufactureDate)
+      .filter(Boolean);
+    const certificates = appState.certificates
+      .filter(certificate => Number(getCertificateClassification(certificate).typeId) === Number(type.id))
+      .sort((a, b) => String(b.inspectionDate || '').localeCompare(String(a.inspectionDate || '')));
+    const certificateManufactureDates = certificates.map(getCertificateManufactureDate).filter(Boolean);
+    const manufactureDate = [...productDates, ...certificateManufactureDates].sort().at(-1) || '';
+    const latestInspectionDate = certificates.map(certificate => certificate.inspectionDate).filter(Boolean).sort().at(-1) || '';
+    const nextInspectionDate = manufactureDate ? calcNextDeadline(manufactureDate, Number(type.intervalMonths || 0)) : '';
+    return {
+      type,
+      products,
+      certificates,
+      manufactureDate,
+      latestInspectionDate,
+      nextInspectionDate,
+      intervalMonths: Number(type.intervalMonths || 0),
+      source: productDates.includes(manufactureDate) ? '제품 최근 제조일' : (manufactureDate ? '성적서 기준 제조일' : '기준일 미입력')
+    };
+  });
+}
+
+function getCertificateCalendarMonth() {
+  const inputValue = document.getElementById('cert-calendar-month')?.value;
+  const defaultValue = getTodayKstStr().slice(0, 7);
+  return inputValue || certificateCalendarMonth || defaultValue;
+}
+
+function formatCertificateDate(dateValue) {
+  if (!dateValue) return '미입력';
+  return String(dateValue).replaceAll('-', '.');
+}
+
+function renderCertificateCalendar(monthValue) {
+  const calendar = document.getElementById('cert-inspection-calendar');
+  if (!calendar) return;
+  const normalizedMonth = /^\d{4}-\d{2}$/.test(String(monthValue || '')) ? monthValue : getTodayKstStr().slice(0, 7);
+  certificateCalendarMonth = normalizedMonth;
+  const [year, month] = normalizedMonth.split('-').map(Number);
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const lastDate = new Date(year, month, 0).getDate();
+  const summaries = getTypeInspectionSummaries();
+  const eventsByDate = {};
+  const addEvent = (date, event) => {
+    if (!date || !String(date).startsWith(normalizedMonth)) return;
+    if (!eventsByDate[date]) eventsByDate[date] = [];
+    eventsByDate[date].push(event);
+  };
+
+  summaries.forEach(summary => {
+    if (summary.nextInspectionDate) addEvent(summary.nextInspectionDate, { kind: 'due', label: `${summary.type.name} 검사 예정` });
+    summary.certificates.forEach(certificate => {
+      if (certificate.inspectionDate) addEvent(certificate.inspectionDate, { kind: 'done', label: `${summary.type.name} 성적서` });
+    });
+  });
+
+  const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
+  const headers = weekdayLabels.map((label, index) => `<div class="certificate-calendar-weekday ${index === 0 ? 'is-sunday' : ''}">${label}</div>`).join('');
+  const blanks = Array.from({ length: firstDay }, () => '<div class="certificate-calendar-cell is-blank"></div>').join('');
+  const days = Array.from({ length: lastDate }, (_, index) => {
+    const day = index + 1;
+    const date = `${normalizedMonth}-${String(day).padStart(2, '0')}`;
+    const events = eventsByDate[date] || [];
+    return `<div class="certificate-calendar-cell"><div class="certificate-calendar-date">${day}</div>${events.slice(0, 3).map(event => `<span class="certificate-calendar-event is-${event.kind}" title="${escapeHtml(event.label)}">${escapeHtml(event.label)}</span>`).join('')}${events.length > 3 ? `<span class="certificate-calendar-more">+${events.length - 3}</span>` : ''}</div>`;
+  }).join('');
+  calendar.innerHTML = `<div class="certificate-calendar-grid">${headers}${blanks}${days}</div>`;
+}
+
+function renderCertificateWorkspace() {
+  const target = document.getElementById('certificate-workspace');
+  if (!target) return;
+  const summaries = getTypeInspectionSummaries();
+  const missingFiles = getMissingFileCertificates();
+  const unclassified = appState.certificates.filter(certificate => !getCertificateClassification(certificate).typeId).length;
+  const calendarMonth = getCertificateCalendarMonth();
+
+  target.innerHTML = `
+    <section class="certificate-workspace-card">
+      <div class="certificate-workspace-head">
+        <div>
+          <h3><i data-lucide="chart-no-axes-combined" class="w-4 h-4"></i>유형별 검사 기준 현황</h3>
+          <p>기준 제조일에 유형별 검사주기를 적용해 검사 예정일을 계산합니다. 실제 검사 계획은 공정 운영 및 내부 기준을 함께 확인하세요.</p>
+        </div>
+        <div class="certificate-workspace-status"><span>파일 보완 ${missingFiles.length}건</span><span>유형 미분류 ${unclassified}건</span></div>
+      </div>
+      <div class="certificate-type-summary-grid">
+        ${summaries.map(summary => {
+          const dueClass = !summary.nextInspectionDate ? 'is-empty' : (calcDDay(summary.nextInspectionDate) < 0 ? 'is-overdue' : (calcDDay(summary.nextInspectionDate) <= 14 ? 'is-soon' : ''));
+          return `<article class="certificate-type-summary ${dueClass}">
+            <div class="certificate-type-summary-top"><strong>${escapeHtml(summary.type.name)}</strong><span>${summary.intervalMonths || '-'}개월</span></div>
+            <dl>
+              <div><dt>기준 제조일</dt><dd>${formatCertificateDate(summary.manufactureDate)}</dd></div>
+              <div><dt>검사 예정일</dt><dd>${formatCertificateDate(summary.nextInspectionDate)}</dd></div>
+              <div><dt>최근 성적서</dt><dd>${formatCertificateDate(summary.latestInspectionDate)}</dd></div>
+            </dl>
+            <p>${summary.products.length}개 품목 · 성적서 ${summary.certificates.length}건 · ${summary.source}</p>
+          </article>`;
+        }).join('')}
+      </div>
+    </section>
+    <section class="certificate-workspace-card">
+      <div class="certificate-workspace-head">
+        <div><h3><i data-lucide="calendar-days" class="w-4 h-4"></i>월간 검사 캘린더</h3><p>파란색은 성적서 검사일, 주황색은 유형별 검사 예정일입니다.</p></div>
+        <label class="certificate-calendar-control"><span>조회 월</span><input id="cert-calendar-month" type="month" value="${calendarMonth}" onchange="renderCertificateCalendar(this.value)"></label>
+      </div>
+      <div id="cert-inspection-calendar"></div>
+    </section>`;
+  renderCertificateCalendar(calendarMonth);
+  lucide.createIcons();
+}
+
+function handleCertificateProductChange() {
+  const product = appState.products.find(item => Number(item.id) === Number(document.getElementById('cert-product-id')?.value));
+  const typeSelect = document.getElementById('cert-type-id');
+  const manufactureInput = document.getElementById('cert-manufacture-date');
+  if (!product) return;
+  if (typeSelect) typeSelect.value = String(product.typeId || '');
+  if (manufactureInput) manufactureInput.value = product.lastManufactureDate || '';
+}
+
+function openCertificateMaintenanceModal() {
+  const missing = getMissingFileCertificates();
+  const list = document.getElementById('bulk-cert-list');
+  if (!list) return;
+  const typeSelect = document.getElementById('bulk-cert-type-id');
+  typeSelect.innerHTML = `<option value="">유형 선택 안 함</option>${appState.types.map(type => `<option value="${type.id}">${escapeHtml(type.name)} (${type.intervalMonths}개월)</option>`).join('')}`;
+  document.getElementById('bulk-cert-manufacture-date').value = '';
+  document.getElementById('bulk-cert-files').value = '';
+  document.getElementById('bulk-cert-action').value = 'attach';
+  list.innerHTML = missing.length
+    ? missing.map(certificate => `<label class="bulk-cert-row"><input type="checkbox" name="bulk-cert-id" value="${certificate.id}" checked onchange="updateBulkCertificateSelection()"><span><strong>${escapeHtml(certificate.certNumber || '번호 미입력')}</strong><small>${escapeHtml(certificate.fileName || '파일명 없음')} · 검사일 ${formatCertificateDate(certificate.inspectionDate)}</small></span></label>`).join('')
+    : '<div class="bulk-cert-empty">파일 주소가 누락된 성적서가 없습니다.</div>';
+  updateBulkCertificateSelection();
+  openModal('modal-bulk-cert-maintenance');
+}
+
+function updateBulkCertificateSelection() {
+  const selected = document.querySelectorAll('input[name="bulk-cert-id"]:checked').length;
+  const count = document.getElementById('bulk-cert-selected-count');
+  if (count) count.textContent = `${selected}건 선택`;
+}
+
+function updateBulkCertificateActionHelp() {
+  const action = document.getElementById('bulk-cert-action')?.value;
+  const fileWrap = document.getElementById('bulk-cert-file-wrap');
+  const classificationWrap = document.getElementById('bulk-cert-classification-wrap');
+  const submit = document.getElementById('bulk-cert-submit');
+  if (fileWrap) fileWrap.classList.toggle('hidden', action !== 'attach');
+  if (classificationWrap) classificationWrap.classList.toggle('hidden', action === 'delete');
+  if (submit) submit.textContent = action === 'delete' ? '선택 성적서 삭제' : (action === 'classify' ? '유형·제조일 저장' : '파일 일괄 연결');
+}
+
+async function handleBulkCertificateMaintenance(event) {
+  event.preventDefault();
+  if (isSavingCertificate) return;
+  const form = event.currentTarget;
+  const selectedIds = [...document.querySelectorAll('input[name="bulk-cert-id"]:checked')].map(input => Number(input.value));
+  const action = document.getElementById('bulk-cert-action').value;
+  const typeId = Number(document.getElementById('bulk-cert-type-id').value || 0);
+  const manufactureDate = document.getElementById('bulk-cert-manufacture-date').value;
+  const files = [...document.getElementById('bulk-cert-files').files];
+  if (!selectedIds.length) return showToast('처리할 성적서를 하나 이상 선택하세요.', 'error');
+  if (!supabaseClient || !isCloudConnected) return showToast('클라우드 연결 후 일괄 정리를 실행하세요.', 'error');
+  if (action === 'delete' && !confirm(`선택한 ${selectedIds.length}건의 성적서 정보를 삭제하시겠습니까? 파일은 저장소에 남을 수 있습니다.`)) return;
+  if (action === 'classify' && (!typeId || !manufactureDate)) return showToast('유형과 기준 제조일을 모두 입력하세요.', 'error');
+  if (action === 'attach' && !files.length) return showToast('재첨부할 원본 성적서 파일을 선택하세요.', 'error');
+
+  isSavingCertificate = true;
+  setCertificateSaveInProgress(form, true, '일괄 처리 중...');
+  try {
+    if (action === 'delete') {
+      const { error } = await supabaseClient.from('quality_certificates').delete().in('id', selectedIds);
+      if (error) throw error;
+      await removeCertificateMetadata(selectedIds);
+      await loadCloudState();
+      closeModal('modal-bulk-cert-maintenance');
+      showToast(`${selectedIds.length}건의 성적서 정보를 삭제했습니다.`, 'success');
+      return;
+    }
+
+    const selectedCertificates = appState.certificates.filter(certificate => selectedIds.includes(Number(certificate.id)));
+    const metadata = getCertificateMetadataMap();
+    let mappedCount = 0;
+    let unmatchedCount = 0;
+    const resultIds = [];
+    if (action === 'attach') {
+      const filesByName = new Map(files.map(file => [normalizeFileName(file.name), file]));
+      for (const certificate of selectedCertificates) {
+        const file = filesByName.get(normalizeFileName(certificate.fileName));
+        if (!file) { unmatchedCount += 1; continue; }
+        const uploadRes = await uploadFileToCloud(file, 'certs');
+        if (!uploadRes.url) throw new Error(`${file.name} 파일의 업로드 주소를 받지 못했습니다.`);
+        const { data, error } = await supabaseClient
+          .from('quality_certificates')
+          .update({ file_url: uploadRes.url, file_name: file.name, file_size: file.size })
+          .eq('id', Number(certificate.id))
+          .select()
+          .single();
+        if (error || !data) throw error || new Error(`${certificate.certNumber || file.name} 저장 결과를 확인하지 못했습니다.`);
+        syncSavedCertificate(data);
+        resultIds.push(Number(certificate.id));
+        mappedCount += 1;
+      }
+      if (!mappedCount) throw new Error('선택한 파일명과 성적서 파일명이 일치하지 않습니다. 파일명은 기존 성적서 목록과 같아야 합니다.');
+    } else {
+      resultIds.push(...selectedIds);
+    }
+
+    if (typeId && manufactureDate) {
+      resultIds.forEach(id => {
+        metadata[String(id)] = { ...(metadata[String(id)] || {}), typeId, manufactureDate, source: '일괄 분류', updatedAt: new Date().toISOString() };
+      });
+      await saveCertificateMetadataMap(metadata);
+    }
+    renderCertificates();
+    await loadCloudState();
+    closeModal('modal-bulk-cert-maintenance');
+    const suffix = unmatchedCount ? ` 파일명 불일치 ${unmatchedCount}건은 제외됐습니다.` : '';
+    const actionLabel = action === 'attach' ? `파일 ${mappedCount}건을 연결했습니다.` : `성적서 ${resultIds.length}건의 유형·제조일을 저장했습니다.`;
+    showToast(`${actionLabel}${suffix}`, 'success');
+  } catch (error) {
+    console.error('성적서 일괄 정리 실패:', error);
+    showToast(getCertificateSaveErrorMessage(error), 'error');
+  } finally {
+    isSavingCertificate = false;
+    setCertificateSaveInProgress(form, false);
+  }
+}
+
 // ==================== 2. Supabase Client Setup ====================
 const SUPABASE_URL = 'https://hooaeqywrdihninxnvtb.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_3iDGX80MZlMhAPCthcBKDA_TDUHDwhz';
@@ -1247,60 +1562,51 @@ function renderCertificates() {
   const tbody = document.getElementById('certs-table-body');
   const mobileList = document.getElementById('certificates-mobile-list');
   if (!tbody) return;
+  renderCertificateWorkspace();
 
   if (appState.certificates.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400">보관된 성적서가 없습니다.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">보관된 성적서가 없습니다.</td></tr>`;
     if (mobileList) mobileList.innerHTML = `<div class="mobile-empty-state"><i data-lucide="file-search" class="w-5 h-5"></i><span>보관된 성적서가 없습니다.</span></div>`;
     lucide.createIcons();
     return;
   }
 
   tbody.innerHTML = appState.certificates.map(c => {
-    const product = appState.products.find(p => p.id === Number(c.productId));
-    const prodName = product ? product.name : '전체/유형공통';
+    const classification = getCertificateClassification(c);
+    const productName = classification.product ? classification.product.name : '유형 공통 / 제품 미연결';
+    const typeName = classification.type?.name || '유형 미분류';
+    const manufactureDate = classification.manufactureDate || '기준일 미입력';
     return `
       <tr class="table-row-hover transition">
         <td class="py-3 px-4 font-mono font-bold text-blue-600 dark:text-blue-400"><span class="table-text-one-line" title="${escapeHtml(c.certNumber || '-')}">${escapeHtml(c.certNumber || '-')}</span></td>
-        <td class="py-3 px-4 font-medium text-slate-900 dark:text-white"><span class="table-text-two-lines" title="${escapeHtml(prodName)}">${escapeHtml(prodName)}</span></td>
+        <td class="py-3 px-4 font-medium text-slate-900 dark:text-white"><span class="table-text-two-lines" title="${escapeHtml(productName)}">${escapeHtml(productName)}</span></td>
+        <td class="py-3 px-4"><span class="table-text-one-line" title="${escapeHtml(typeName)}">${escapeHtml(typeName)}</span><span class="block mt-0.5 text-[10px] text-slate-400">제조 기준 ${manufactureDate}</span></td>
         <td class="py-3 px-4">${c.inspectionDate || '-'}</td>
         <td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-medium"><span class="table-text-one-line" title="${escapeHtml(c.fileName || '성적서.pdf')}">${escapeHtml(c.fileName || '성적서.pdf')}</span></td>
         <td class="py-3 px-4 text-slate-400 text-xs">${c.createdAt ? c.createdAt.slice(0, 10) : '-'}</td>
-        <td class="py-3 px-4 text-right action-column">
-          <div class="flex items-center justify-end gap-1.5">
-            ${certificateFileActionMarkup(c)}
-            <button type="button" onclick="deleteCert(${Number(c.id)})" class="p-1 text-slate-400 hover:text-red-600" title="성적서 삭제" aria-label="성적서 삭제">
-              <i data-lucide="trash-2" class="w-4 h-4"></i>
-            </button>
-          </div>
-        </td>
+        <td class="py-3 px-4 text-right action-column"><div class="flex items-center justify-end gap-1.5">${certificateFileActionMarkup(c)}<button type="button" onclick="deleteCert(${Number(c.id)})" class="p-1 text-slate-400 hover:text-red-600" title="성적서 삭제" aria-label="성적서 삭제"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>
       </tr>
     `;
   }).join('');
 
   if (mobileList) {
     mobileList.innerHTML = appState.certificates.map(c => {
-      const product = appState.products.find(p => p.id === Number(c.productId));
-      const productName = product ? product.name : '전체/유형공통';
+      const classification = getCertificateClassification(c);
+      const productName = classification.product ? classification.product.name : '유형 공통 / 제품 미연결';
+      const typeName = classification.type?.name || '유형 미분류';
+      const manufactureDate = classification.manufactureDate || '기준일 미입력';
       const fileName = c.fileName || '성적서.pdf';
       const createdAt = c.createdAt ? c.createdAt.slice(0, 10) : '-';
-      const fileAction = certificateFileActionMarkup(c, true);
       return `
         <article class="mobile-certificate-card">
-          <div class="mobile-certificate-head">
-            <span class="mobile-certificate-number" title="${escapeHtml(c.certNumber || '-')}">${escapeHtml(c.certNumber || '-')}</span>
-            <span class="mobile-certificate-date">등록 ${createdAt}</span>
-          </div>
+          <div class="mobile-certificate-head"><span class="mobile-certificate-number" title="${escapeHtml(c.certNumber || '-')}">${escapeHtml(c.certNumber || '-')}</span><span class="mobile-certificate-date">등록 ${createdAt}</span></div>
           <h3 class="mobile-certificate-product" title="${escapeHtml(productName)}">${escapeHtml(productName)}</h3>
           <p class="mobile-certificate-file" title="${escapeHtml(fileName)}"><i data-lucide="paperclip" class="w-3.5 h-3.5"></i><span>${escapeHtml(fileName)}</span></p>
-          <div class="mobile-certificate-meta"><span>검사일 ${c.inspectionDate || '-'}</span><span>파일 ${c.fileName ? '등록됨' : '미등록'}</span></div>
-          <div class="mobile-certificate-actions">
-            ${fileAction}
-            <button type="button" onclick="deleteCert(${Number(c.id)})" class="mobile-certificate-delete" aria-label="성적서 삭제"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-          </div>
+          <div class="mobile-certificate-meta"><span>${escapeHtml(typeName)}</span><span>제조 ${manufactureDate}</span><span>검사 ${c.inspectionDate || '-'}</span></div>
+          <div class="mobile-certificate-actions">${certificateFileActionMarkup(c, true)}<button type="button" onclick="deleteCert(${Number(c.id)})" class="mobile-certificate-delete" aria-label="성적서 삭제"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>
         </article>`;
     }).join('');
   }
-
   lucide.createIcons();
 }
 
@@ -2109,11 +2415,12 @@ function openUploadCertModal() {
   document.getElementById('cert-date').value = getTodayKstStr();
   document.getElementById('cert-file').value = '';
   document.getElementById('cert-memo').value = '';
+  document.getElementById('cert-manufacture-date').value = '';
 
   const prodSelect = document.getElementById('cert-product-id');
-  prodSelect.innerHTML = `<option value="">선택 안 함 (전체/공통)</option>` + 
-    appState.products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-
+  prodSelect.innerHTML = `<option value="">선택 안 함 (유형 공통)</option>` + appState.products.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+  const typeSelect = document.getElementById('cert-type-id');
+  typeSelect.innerHTML = `<option value="">유형 선택</option>` + appState.types.map(type => `<option value="${type.id}">${escapeHtml(type.name)} (${type.intervalMonths}개월)</option>`).join('');
   openModal('modal-upload-cert');
 }
 
@@ -2228,18 +2535,15 @@ async function handleSaveCert(e) {
   const form = e.currentTarget;
   const certNumber = document.getElementById('cert-number').value.trim();
   const productId = document.getElementById('cert-product-id').value;
+  const typeId = Number(document.getElementById('cert-type-id').value || 0);
+  const manufactureDate = document.getElementById('cert-manufacture-date').value;
   const inspectionDate = document.getElementById('cert-date').value;
   const memo = document.getElementById('cert-memo').value.trim();
   const fileInput = document.getElementById('cert-file');
 
-  if (!inspectionDate || fileInput.files.length === 0) {
-    showToast('검사 일자와 성적서 파일을 첨부하세요.', 'error');
-    return;
-  }
-  if (!supabaseClient || !isCloudConnected) {
-    showToast('성적서 파일은 클라우드 연결 후에 보관할 수 있습니다.', 'error');
-    return;
-  }
+  if (!inspectionDate || fileInput.files.length === 0) return showToast('검사 일자와 성적서 파일을 첨부하세요.', 'error');
+  if (!typeId || !manufactureDate) return showToast('성적서 정리를 위해 식품유형과 기준 제조일을 입력하세요.', 'error');
+  if (!supabaseClient || !isCloudConnected) return showToast('성적서 파일은 클라우드 연결 후에 보관할 수 있습니다.', 'error');
 
   isSavingCertificate = true;
   setCertificateSaveInProgress(form, true, '성적서 저장 중...');
@@ -2250,24 +2554,18 @@ async function handleSaveCert(e) {
 
     const { data, error } = await supabaseClient
       .from('quality_certificates')
-      .insert([{
-        cert_number: certNumber,
-        product_id: productId ? Number(productId) : null,
-        inspection_date: inspectionDate,
-        file_url: uploadRes.url,
-        file_name: file.name,
-        file_size: file.size,
-        memo
-      }])
+      .insert([{ cert_number: certNumber, product_id: productId ? Number(productId) : null, inspection_date: inspectionDate, file_url: uploadRes.url, file_name: file.name, file_size: file.size, memo }])
       .select()
       .single();
     if (error) throw error;
     if (!data) throw new Error('성적서 등록 결과를 확인하지 못했습니다.');
 
+    await updateCertificateMetadata(data.id, { typeId, manufactureDate, source: productId ? '제품 연동' : '직접 입력' });
     appState.settings.certSequence = (appState.settings.certSequence || 1) + 1;
     syncSavedCertificate(data);
+    renderCertificates();
     closeModal('modal-upload-cert');
-    showToast('성적서가 파일과 함께 클라우드에 등록되었습니다.', 'success');
+    showToast('성적서가 유형·제조일 정보와 함께 클라우드에 등록되었습니다.', 'success');
     void loadCloudState();
   } catch (error) {
     console.error('성적서 등록 실패:', error);
@@ -2284,10 +2582,13 @@ async function deleteCert(id) {
   if (!confirm(`성적서 '${c.certNumber || c.fileName}'을(를) 삭제하시겠습니까?`)) return;
 
   if (supabaseClient && isCloudConnected) {
-    await supabaseClient.from('quality_certificates').delete().eq('id', id);
+    const { error } = await supabaseClient.from('quality_certificates').delete().eq('id', id);
+    if (error) throw error;
+    await removeCertificateMetadata([id]);
     await loadCloudState();
   } else {
     appState.certificates = appState.certificates.filter(x => x.id !== id);
+    await removeCertificateMetadata([id]);
     saveLocalState();
     renderCurrentTab();
   }
@@ -3224,7 +3525,7 @@ async function installPwaApp() {
 function registerPwa() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=202608260540', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=202608270750', { scope: './' })
       .then(() => console.info('PWA 서비스 워커가 등록되었습니다.'))
       .catch(error => console.warn('PWA 서비스 워커 등록 실패:', error));
   });

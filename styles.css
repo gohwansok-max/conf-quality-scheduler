@@ -1192,3 +1192,97 @@ tr.table-row-hover:hover {
     grid-column: 1 / -1;
   }
 }
+
+
+/* 성적서 유형·제조일 기준 관리 및 검사 캘린더 */
+.certificate-workspace-card {
+  padding: 1rem;
+  border: 1px solid #dbeafe;
+  border-radius: 0.85rem;
+  background: linear-gradient(135deg, #f8fbff 0%, #ffffff 100%);
+}
+.certificate-workspace-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.certificate-workspace-head h3 { display: flex; align-items: center; gap: 0.35rem; color: #1e3a8a; font-size: 0.86rem; font-weight: 800; }
+.certificate-workspace-head p { margin-top: 0.25rem; color: #64748b; font-size: 0.7rem; line-height: 1.45; }
+.certificate-workspace-status { display: flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; gap: 0.35rem; }
+.certificate-workspace-status span { padding: 0.3rem 0.45rem; border: 1px solid #fde68a; border-radius: 999px; color: #92400e; background: #fffbeb; font-size: 0.65rem; font-weight: 750; white-space: nowrap; }
+.certificate-type-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.65rem; margin-top: 0.85rem; }
+.certificate-type-summary { padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 0.7rem; background: #ffffff; }
+.certificate-type-summary.is-overdue { border-color: #fecaca; background: #fffafa; }
+.certificate-type-summary.is-soon { border-color: #fde68a; background: #fffdf4; }
+.certificate-type-summary.is-empty { border-style: dashed; }
+.certificate-type-summary-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.certificate-type-summary-top strong { overflow: hidden; color: #1e293b; font-size: 0.78rem; text-overflow: ellipsis; white-space: nowrap; }
+.certificate-type-summary-top span { flex: 0 0 auto; padding: 0.15rem 0.35rem; border-radius: 999px; color: #1d4ed8; background: #eff6ff; font-size: 0.61rem; font-weight: 800; }
+.certificate-type-summary dl { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.3rem; margin-top: 0.6rem; }
+.certificate-type-summary dl div { min-width: 0; padding: 0.4rem; border-radius: 0.45rem; background: #f8fafc; }
+.certificate-type-summary dt { overflow: hidden; color: #64748b; font-size: 0.59rem; text-overflow: ellipsis; white-space: nowrap; }
+.certificate-type-summary dd { overflow: hidden; margin-top: 0.12rem; color: #334155; font-size: 0.63rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.certificate-type-summary p { overflow: hidden; margin-top: 0.55rem; color: #94a3b8; font-size: 0.61rem; text-overflow: ellipsis; white-space: nowrap; }
+.certificate-calendar-control { display: inline-flex; align-items: center; gap: 0.35rem; flex: 0 0 auto; color: #475569; font-size: 0.68rem; font-weight: 700; }
+.certificate-calendar-control input { max-width: 8rem; padding: 0.35rem 0.45rem; border: 1px solid #cbd5e1; border-radius: 0.45rem; color: #334155; background: #ffffff; font-size: 0.68rem; }
+.certificate-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); overflow: hidden; margin-top: 0.75rem; border: 1px solid #e2e8f0; border-radius: 0.65rem; }
+.certificate-calendar-weekday { padding: 0.38rem 0.2rem; border-bottom: 1px solid #e2e8f0; color: #64748b; background: #f8fafc; font-size: 0.65rem; font-weight: 800; text-align: center; }
+.certificate-calendar-weekday.is-sunday { color: #dc2626; }
+.certificate-calendar-cell { min-height: 5.3rem; padding: 0.35rem; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; background: #ffffff; }
+.certificate-calendar-cell:nth-child(7n) { border-right: 0; }
+.certificate-calendar-cell.is-blank { background: #f8fafc; }
+.certificate-calendar-date { margin-bottom: 0.22rem; color: #64748b; font-size: 0.65rem; font-weight: 800; }
+.certificate-calendar-event { display: block; overflow: hidden; margin-top: 0.16rem; padding: 0.18rem 0.25rem; border-radius: 0.25rem; font-size: 0.56rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.certificate-calendar-event.is-done { color: #1d4ed8; background: #dbeafe; }
+.certificate-calendar-event.is-due { color: #b45309; background: #fef3c7; }
+.certificate-calendar-more { color: #94a3b8; font-size: 0.58rem; font-weight: 700; }
+.bulk-cert-list { overflow-y: auto; min-height: 5rem; max-height: 15rem; border: 1px solid #e2e8f0; border-radius: 0.65rem; }
+.bulk-cert-row { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.65rem 0.75rem; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+.bulk-cert-row:last-child { border-bottom: 0; }
+.bulk-cert-row input { margin-top: 0.15rem; accent-color: #2563eb; }
+.bulk-cert-row span { display: grid; min-width: 0; gap: 0.15rem; }
+.bulk-cert-row strong, .bulk-cert-row small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bulk-cert-row strong { color: #1e3a8a; font-size: 0.71rem; }
+.bulk-cert-row small { color: #64748b; font-size: 0.65rem; }
+.bulk-cert-empty { padding: 1.5rem; color: #94a3b8; font-size: 0.74rem; text-align: center; }
+.dark .certificate-workspace-card { border-color: #1e3a8a; background: linear-gradient(135deg, #0f172a 0%, #172554 100%); }
+.dark .certificate-workspace-head h3, .dark .certificate-type-summary-top strong { color: #dbeafe; }
+.dark .certificate-workspace-head p, .dark .certificate-type-summary dt, .dark .certificate-type-summary p { color: #94a3b8; }
+.dark .certificate-type-summary { border-color: #334155; background: #1e293b; }
+.dark .certificate-type-summary.is-overdue { border-color: #7f1d1d; background: #450a0a; }
+.dark .certificate-type-summary.is-soon { border-color: #92400e; background: #422006; }
+.dark .certificate-type-summary dl div, .dark .certificate-calendar-cell { background: #0f172a; }
+.dark .certificate-type-summary dd { color: #e2e8f0; }
+.dark .certificate-calendar-control { color: #cbd5e1; }
+.dark .certificate-calendar-control input { border-color: #475569; color: #e2e8f0; background: #1e293b; }
+.dark .certificate-calendar-grid, .dark .certificate-calendar-weekday, .dark .certificate-calendar-cell { border-color: #334155; }
+.dark .certificate-calendar-weekday, .dark .certificate-calendar-cell.is-blank { background: #1e293b; }
+.dark .certificate-calendar-event.is-done { color: #bfdbfe; background: #1e3a8a; }
+.dark .certificate-calendar-event.is-due { color: #fde68a; background: #78350f; }
+.dark .bulk-cert-list { border-color: #334155; }
+.dark .bulk-cert-row { border-color: #334155; }
+.dark .bulk-cert-row strong { color: #bfdbfe; }
+
+@media (max-width: 767px), (pointer: coarse) {
+  #view-certs > .app-card > .flex { align-items: stretch; }
+  #view-certs > .app-card > .flex > .flex { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  #view-certs > .app-card > .flex > .flex > button { justify-content: center; min-height: 2.45rem; padding-left: 0.5rem; padding-right: 0.5rem; }
+  #view-certs > .app-card > .flex > .flex > button span { line-height: 1.15; text-align: center; white-space: normal; }
+  .certificate-workspace-card { padding: 0.8rem; }
+  .certificate-workspace-head { display: grid; gap: 0.65rem; }
+  .certificate-workspace-status { justify-content: flex-start; }
+  .certificate-type-summary-grid { grid-template-columns: 1fr; }
+  .certificate-type-summary { padding: 0.7rem; }
+  .certificate-type-summary dl { gap: 0.38rem; }
+  .certificate-calendar-control { justify-content: space-between; width: 100%; }
+  .certificate-calendar-control input { flex: 0 0 8rem; }
+  .certificate-calendar-cell { min-height: 4.5rem; padding: 0.25rem; }
+  .certificate-calendar-event { padding: 0.14rem 0.18rem; font-size: 0.49rem; }
+  .certificate-calendar-date { font-size: 0.58rem; }
+  .bulk-cert-row { padding: 0.65rem; }
+  #modal-bulk-cert-maintenance .contents { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
+  #modal-bulk-cert-maintenance .contents.hidden { display: none; }
+}
+
+/* 모바일에서는 성적서 표를 숨기고 읽기 쉬운 카드 목록만 표시합니다. */
+@media (max-width: 767px), (pointer: coarse) {
+  #view-certs .overflow-x-auto {
+    display: none !important;
+  }
+}
