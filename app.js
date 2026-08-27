@@ -123,6 +123,16 @@ function certificateFileActionMarkup(certificate, mobile = false) {
   return `<button type="button" onclick="openCertificateViewer(${id})" class="${buttonClass}" title="성적서 열람"><i data-lucide="eye" class="w-3.5 h-3.5"></i><span>열람</span></button><button type="button" onclick="downloadCertFile(${id})" class="${compactClass}" title="성적서 다운로드"><i data-lucide="download" class="w-3.5 h-3.5"></i><span>다운로드</span></button>`;
 }
 
+function certificateAssignmentActionMarkup(certificate, mobile = false) {
+  const classification = getCertificateClassification(certificate);
+  const completed = Boolean(classification.product && classification.type && classification.manufactureDate);
+  const className = mobile
+    ? 'mobile-certificate-primary bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-200'
+    : 'inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-violet-50 text-violet-700 hover:bg-violet-100 dark:bg-violet-950/40 dark:text-violet-300';
+  const label = completed ? '정보 수정' : '제품·유형 입력';
+  return `<button type="button" onclick="openCertificateAssignmentModal(${Number(certificate.id)})" class="${className}" title="제품·식품유형·제조일 입력"><i data-lucide="link-2" class="w-3.5 h-3.5"></i><span>${label}</span></button>`;
+}
+
 
 // ==================== 성적서 유형·제조일 메타데이터 및 이력 시각화 ====================
 const CERTIFICATE_METADATA_KEY = 'certificate_metadata_v1';
@@ -386,6 +396,126 @@ function handleCertificateProductChange() {
   if (!product) return;
   if (typeSelect) typeSelect.value = String(product.typeId || '');
   if (manufactureInput) manufactureInput.value = product.lastManufactureDate || '';
+}
+
+function updateCertificateAssignmentPreview() {
+  const typeId = Number(document.getElementById('certificate-assignment-type')?.value || 0);
+  const manufactureDate = document.getElementById('certificate-assignment-manufacture-date')?.value || '';
+  const type = appState.types.find(item => Number(item.id) === typeId);
+  const output = document.getElementById('certificate-assignment-scheduled-date');
+  const note = document.getElementById('certificate-assignment-preview-note');
+  const scheduledDate = type && manufactureDate ? calcNextDeadline(manufactureDate, Number(type.intervalMonths || 0)) : '';
+  if (output) output.value = scheduledDate || '';
+  if (note) note.textContent = scheduledDate ? `${type.name} · ${type.intervalMonths}개월 주기 기준` : '제품과 식품유형, 제조일을 입력하세요.';
+}
+
+function handleCertificateAssignmentProductChange() {
+  const productValue = String(document.getElementById('certificate-assignment-product')?.value || '');
+  const newProductWrap = document.getElementById('certificate-assignment-new-product-wrap');
+  const newProductInput = document.getElementById('certificate-assignment-new-product-name');
+  const isNewProduct = productValue === '__new__';
+  if (newProductWrap) newProductWrap.classList.toggle('hidden', !isNewProduct);
+  if (newProductInput) {
+    newProductInput.required = isNewProduct;
+    if (!isNewProduct) newProductInput.value = '';
+  }
+  if (isNewProduct) {
+    updateCertificateAssignmentPreview();
+    return;
+  }
+  const product = appState.products.find(item => Number(item.id) === Number(productValue));
+  if (!product) return;
+  const typeSelect = document.getElementById('certificate-assignment-type');
+  const manufactureInput = document.getElementById('certificate-assignment-manufacture-date');
+  if (typeSelect) typeSelect.value = String(product.typeId || '');
+  if (manufactureInput && !manufactureInput.value) manufactureInput.value = product.lastManufactureDate || '';
+  updateCertificateAssignmentPreview();
+}
+
+function openCertificateAssignmentModal(certificateId) {
+  const certificate = getCertificateById(certificateId);
+  if (!certificate) return;
+  const classification = getCertificateClassification(certificate);
+  document.getElementById('certificate-assignment-id').value = String(certificate.id);
+  document.getElementById('certificate-assignment-number').textContent = certificate.certNumber || '성적서 번호 미입력';
+  document.getElementById('certificate-assignment-file').textContent = certificate.fileName || '파일명 없음';
+  const productSelect = document.getElementById('certificate-assignment-product');
+  productSelect.innerHTML = `<option value="">제품 선택</option>${appState.products.map(product => `<option value="${product.id}">${escapeHtml(product.name)} · ${escapeHtml(appState.types.find(type => Number(type.id) === Number(product.typeId))?.name || '유형 미지정')}</option>`).join('')}<option value="__new__">＋ 목록에 없는 새 제품 직접 등록</option>`;
+  productSelect.value = classification.product ? String(classification.product.id) : '';
+  document.getElementById('certificate-assignment-new-product-name').value = '';
+  document.getElementById('certificate-assignment-new-product-wrap').classList.add('hidden');
+  document.getElementById('certificate-assignment-new-product-name').required = false;
+  const typeSelect = document.getElementById('certificate-assignment-type');
+  typeSelect.innerHTML = `<option value="">식품유형 선택</option>${appState.types.map(type => `<option value="${type.id}">${escapeHtml(type.name)} · ${type.intervalMonths}개월</option>`).join('')}`;
+  typeSelect.value = classification.typeId ? String(classification.typeId) : '';
+  document.getElementById('certificate-assignment-manufacture-date').value = classification.manufactureDate || '';
+  updateCertificateAssignmentPreview();
+  openModal('modal-certificate-assignment');
+}
+
+async function handleSaveCertificateAssignment(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const certificateId = Number(document.getElementById('certificate-assignment-id').value || 0);
+  const productValue = String(document.getElementById('certificate-assignment-product').value || '');
+  const typeId = Number(document.getElementById('certificate-assignment-type').value || 0);
+  const manufactureDate = document.getElementById('certificate-assignment-manufacture-date').value || '';
+  const newProductName = document.getElementById('certificate-assignment-new-product-name').value.trim();
+  const certificate = getCertificateById(certificateId);
+  let product = appState.products.find(item => Number(item.id) === Number(productValue));
+  const type = appState.types.find(item => Number(item.id) === typeId);
+  if (!certificate) return showToast('성적서 정보를 찾지 못했습니다. 목록을 새로고침하세요.', 'error');
+  if (productValue === '__new__' && !newProductName) return showToast('새 제품명을 입력하세요.', 'error');
+  if (productValue !== '__new__' && !product) return showToast('연결할 제품을 선택하세요.', 'error');
+  if (!type || !manufactureDate) return showToast('식품유형과 실제 제조일을 모두 입력하세요.', 'error');
+
+  setCertificateSaveInProgress(form, true, '정보 저장 중...');
+  try {
+    if (productValue === '__new__') {
+      const sameName = appState.products.find(item => String(item.name || '').trim().toLocaleLowerCase('ko-KR') === newProductName.toLocaleLowerCase('ko-KR'));
+      if (sameName) {
+        product = sameName;
+      } else if (supabaseClient && isCloudConnected) {
+        const { data, error } = await insertCloudProductWithIdRecovery({ name: newProductName, type_id: Number(type.id), interval_months: Number(type.intervalMonths || 2), last_manufacture_date: manufactureDate, memo: '성적서 직접 등록으로 추가' });
+        if (error || !data) throw error || new Error('새 제품 등록 결과를 확인하지 못했습니다.');
+        product = toAppProduct(data);
+        appState.products.push(product);
+      } else {
+        const nextId = appState.products.length ? Math.max(...appState.products.map(item => Number(item.id) || 0)) + 1 : 1;
+        product = { id: nextId, name: newProductName, typeId: Number(type.id), intervalMonths: Number(type.intervalMonths || 2), lastManufactureDate: manufactureDate, memo: '성적서 직접 등록으로 추가', productionStatus: 'active', stopReason: '', alertStatus: 'active' };
+        appState.products.push(product);
+        saveLocalState();
+      }
+    }
+    if (supabaseClient && isCloudConnected) {
+      const { data, error } = await supabaseClient
+        .from('quality_certificates')
+        .update({ product_id: Number(product.id) })
+        .eq('id', Number(certificate.id))
+        .select()
+        .single();
+      if (error || !data) throw error || new Error('성적서의 제품 연결 결과를 확인하지 못했습니다.');
+      syncSavedCertificate(data);
+    } else {
+      certificate.productId = Number(product.id);
+      saveLocalState();
+    }
+    await updateCertificateMetadata(certificate.id, {
+      typeId: Number(type.id),
+      manufactureDate,
+      scheduledInspectionDate: calcNextDeadline(manufactureDate, Number(type.intervalMonths || 0)),
+      source: '성적서 직접 등록'
+    });
+    if (supabaseClient && isCloudConnected) await loadCloudState();
+    else renderCertificates();
+    closeModal('modal-certificate-assignment');
+    showToast(`${certificate.certNumber || '성적서'}에 ${product.name} · ${type.name} 정보를 저장했습니다.`, 'success');
+  } catch (error) {
+    console.error('성적서 직접 정보 저장 실패:', error);
+    showToast(getCertificateSaveErrorMessage(error), 'error');
+  } finally {
+    setCertificateSaveInProgress(form, false, '정보 저장 중...');
+  }
 }
 
 function openCertificateMaintenanceModal() {
@@ -1776,7 +1906,7 @@ function renderCertificates() {
         <td class="py-3 px-4">${c.inspectionDate || '-'}</td>
         <td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-medium"><span class="table-text-one-line" title="${escapeHtml(c.fileName || '성적서.pdf')}">${escapeHtml(c.fileName || '성적서.pdf')}</span></td>
         <td class="py-3 px-4 text-slate-400 text-xs">${c.createdAt ? c.createdAt.slice(0, 10) : '-'}</td>
-        <td class="py-3 px-4 text-right action-column"><div class="flex items-center justify-end gap-1.5">${certificateFileActionMarkup(c)}<button type="button" onclick="deleteCert(${Number(c.id)})" class="p-1 text-slate-400 hover:text-red-600" title="성적서 삭제" aria-label="성적서 삭제"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>
+        <td class="py-3 px-4 text-right action-column"><div class="flex flex-wrap items-center justify-end gap-1.5">${certificateAssignmentActionMarkup(c)}${certificateFileActionMarkup(c)}<button type="button" onclick="deleteCert(${Number(c.id)})" class="p-1 text-slate-400 hover:text-red-600" title="성적서 삭제" aria-label="성적서 삭제"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></td>
       </tr>
     `;
   }).join('');
@@ -1796,7 +1926,7 @@ function renderCertificates() {
           <h3 class="mobile-certificate-product" title="${escapeHtml(productName)}">${escapeHtml(productName)}</h3>
           <p class="mobile-certificate-file" title="${escapeHtml(fileName)}"><i data-lucide="paperclip" class="w-3.5 h-3.5"></i><span>${escapeHtml(fileName)}</span></p>
           <div class="mobile-certificate-meta"><span>${escapeHtml(typeName)}</span><span>제조 ${manufactureDate}</span><span>검사 ${c.inspectionDate || '-'}</span><span>예정 ${scheduledInspectionDate}</span></div>
-          <div class="mobile-certificate-actions">${certificateFileActionMarkup(c, true)}<button type="button" onclick="deleteCert(${Number(c.id)})" class="mobile-certificate-delete" aria-label="성적서 삭제"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>
+          <div class="mobile-certificate-actions">${certificateAssignmentActionMarkup(c, true)}${certificateFileActionMarkup(c, true)}<button type="button" onclick="deleteCert(${Number(c.id)})" class="mobile-certificate-delete" aria-label="성적서 삭제"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>
         </article>`;
     }).join('');
   }
@@ -1865,6 +1995,11 @@ function openEditProductModal(id) {
   openModal('modal-product');
 }
 
+function isProductIdSequenceConflict(error) {
+  const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
+  return error?.code === '23505' && (message.includes('quality_products_pkey') || /key\s*\(id\)/.test(message));
+}
+
 function getProductSaveErrorMessage(error) {
   const message = String(error?.message || error?.details || error || '알 수 없는 오류');
   const normalized = message.toLowerCase();
@@ -1874,10 +2009,36 @@ function getProductSaveErrorMessage(error) {
   if (normalized.includes('foreign key') || normalized.includes('type_id')) {
     return '선택한 식품유형 정보를 찾을 수 없습니다. 식품유형을 새로고침한 뒤 다시 시도하세요.';
   }
+  if (isProductIdSequenceConflict(error)) {
+    return '제품명 중복이 아니라 내부 번호 충돌입니다. 잠시 후 다시 시도하거나 목록을 새로고침하세요.';
+  }
   if (normalized.includes('duplicate key') || normalized.includes('unique')) {
-    return '같은 식별값의 제품이 이미 등록되어 있습니다.';
+    return '같은 식품유형에 동일한 제품명이 이미 등록되어 있습니다. 제품 목록을 새로고침해 확인하세요.';
   }
   return `클라우드에 저장하지 못했습니다. ${message}`;
+}
+
+async function insertCloudProductWithIdRecovery(productPayload) {
+  let response = await supabaseClient
+    .from('quality_products')
+    .insert([{ ...productPayload, production_status: 'active', alert_status: 'active' }])
+    .select()
+    .single();
+  if (!response.error || !isProductIdSequenceConflict(response.error)) return { ...response, recoveredIdConflict: false };
+
+  const { data: latestRows, error: latestError } = await supabaseClient
+    .from('quality_products')
+    .select('id')
+    .order('id', { ascending: false })
+    .limit(1);
+  if (latestError) return { ...response, recoveredIdConflict: false };
+  const maxId = Math.max(0, ...(latestRows || []).map(item => Number(item.id) || 0));
+  const retry = await supabaseClient
+    .from('quality_products')
+    .insert([{ id: maxId + 1, ...productPayload, production_status: 'active', alert_status: 'active' }])
+    .select()
+    .single();
+  return { ...retry, recoveredIdConflict: !retry.error };
 }
 
 function setProductSaveInProgress(form, saving) {
@@ -1955,14 +2116,11 @@ async function handleSaveProduct(e) {
         if (!data) throw new Error('수정할 제품을 찾을 수 없거나 저장 결과를 확인할 수 없습니다.');
         savedProduct = data;
       } else {
-        const { data, error } = await supabaseClient
-          .from('quality_products')
-          .insert([{ ...productPayload, production_status: 'active', alert_status: 'active' }])
-          .select()
-          .single();
+        const { data, error, recoveredIdConflict } = await insertCloudProductWithIdRecovery(productPayload);
         if (error) throw error;
         if (!data) throw new Error('등록 결과를 확인할 수 없습니다.');
         savedProduct = data;
+        if (recoveredIdConflict) console.info('제품 내부 번호 충돌을 자동 보정해 등록했습니다.');
 
         const { error: historyError } = await supabaseClient.from('quality_history').insert([{
           product_id: savedProduct.id,
@@ -3976,7 +4134,7 @@ async function installPwaApp() {
 function registerPwa() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=202608271140', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=202608271170', { scope: './' })
       .then(() => console.info('PWA 서비스 워커가 등록되었습니다.'))
       .catch(error => console.warn('PWA 서비스 워커 등록 실패:', error));
   });

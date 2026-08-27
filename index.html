@@ -25,7 +25,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="styles.css?v=202608271140">
+  <link rel="stylesheet" href="styles.css?v=202608271170">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="pwa-icon-192.png">
   <link rel="apple-touch-icon" sizes="192x192" href="pwa-icon-192.png">
@@ -866,6 +866,54 @@
     </div>
   </div>
 
+  <!-- 5-1. Certificate Product / Type Assignment Modal -->
+  <div id="modal-certificate-assignment" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="certificate-assignment-title">
+    <div class="modal-content w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+      <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
+        <div class="min-w-0">
+          <h3 id="certificate-assignment-title" class="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white"><i data-lucide="link-2" class="h-5 w-5 text-violet-500"></i>성적서 제품·유형 등록</h3>
+          <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">제품을 선택하면 식품유형이 자동으로 연결됩니다. 실제 제조일을 확인해 입력하세요.</p>
+        </div>
+        <button type="button" onclick="closeModal('modal-certificate-assignment')" class="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="성적서 정보 등록 창 닫기"><i data-lucide="x" class="h-5 w-5"></i></button>
+      </div>
+      <form id="form-certificate-assignment" onsubmit="handleSaveCertificateAssignment(event)" class="mt-4 space-y-4 text-xs">
+        <input type="hidden" id="certificate-assignment-id">
+        <div class="rounded-xl border border-violet-100 bg-violet-50/60 p-3 dark:border-violet-900/60 dark:bg-violet-950/20">
+          <p id="certificate-assignment-number" class="font-mono font-bold text-violet-700 dark:text-violet-300"></p>
+          <p id="certificate-assignment-file" class="mt-1 truncate text-slate-600 dark:text-slate-300"></p>
+        </div>
+        <div>
+          <label for="certificate-assignment-product" class="mb-1 block font-semibold text-slate-700 dark:text-slate-300">제품명 *</label>
+          <select id="certificate-assignment-product" required onchange="handleCertificateAssignmentProductChange()" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"><option value="">제품 선택</option></select>
+        </div>
+        <div id="certificate-assignment-new-product-wrap" class="hidden">
+          <label for="certificate-assignment-new-product-name" class="mb-1 block font-semibold text-slate-700 dark:text-slate-300">새 제품명 *</label>
+          <input id="certificate-assignment-new-product-name" type="text" placeholder="예: 띵 레몬에이드 베이스" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+          <p class="mt-1 text-[11px] text-slate-400">저장하면 제품 목록에도 추가되고, 현재 성적서와 바로 연결됩니다.</p>
+        </div>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label for="certificate-assignment-type" class="mb-1 block font-semibold text-slate-700 dark:text-slate-300">식품유형 *</label>
+            <select id="certificate-assignment-type" required onchange="updateCertificateAssignmentPreview()" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"><option value="">식품유형 선택</option></select>
+          </div>
+          <div>
+            <label for="certificate-assignment-manufacture-date" class="mb-1 block font-semibold text-slate-700 dark:text-slate-300">실제 제조일 *</label>
+            <input id="certificate-assignment-manufacture-date" type="date" required oninput="updateCertificateAssignmentPreview()" onchange="updateCertificateAssignmentPreview()" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+          </div>
+        </div>
+        <div>
+          <label for="certificate-assignment-scheduled-date" class="mb-1 block font-semibold text-slate-700 dark:text-slate-300">검사 예정일 (자동 계산)</label>
+          <input id="certificate-assignment-scheduled-date" type="text" readonly class="w-full rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 font-semibold text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300">
+          <p id="certificate-assignment-preview-note" class="mt-1 text-[11px] text-slate-400">제품과 식품유형, 제조일을 입력하세요.</p>
+        </div>
+        <div class="flex flex-col-reverse gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:justify-end dark:border-slate-800">
+          <button type="button" onclick="closeModal('modal-certificate-assignment')" class="rounded-lg px-4 py-2 font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">취소</button>
+          <button type="submit" class="rounded-lg bg-violet-600 px-4 py-2 font-semibold text-white shadow-sm hover:bg-violet-700">제품·유형 저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- 6-1. Bulk Certificate Maintenance Modal -->
   <div id="modal-bulk-cert-maintenance" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="bulk-cert-title">
     <div class="modal-content flex max-h-[92vh] w-full max-w-3xl flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-800 dark:bg-slate-900 sm:p-6">
@@ -990,6 +1038,6 @@
   <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
 
   <script src="runtime-config.js"></script>
-  <script src="app.js?v=202608271140"></script>
+  <script src="app.js?v=202608271170"></script>
 </body>
 </html>

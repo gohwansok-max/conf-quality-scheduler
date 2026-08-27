@@ -1049,6 +1049,7 @@ tr.table-row-hover:hover {
   }
 
   .mobile-certificate-actions {
+    flex-wrap: wrap;
     gap: 0.45rem;
     margin-top: 0.75rem;
   }
@@ -1344,4 +1345,15 @@ tr.table-row-hover:hover {
   .type-interval-settings-list { max-height: 22rem; }
   .type-interval-setting-row { grid-template-columns: 1fr; gap: 0.55rem; }
   .type-interval-setting-row input { font-size: 0.85rem; }
+}
+
+@media (max-width: 360px) {
+  .mobile-certificate-actions .mobile-certificate-primary {
+    flex: 1 1 calc(50% - 0.25rem);
+    min-width: 0;
+  }
+
+  .mobile-certificate-actions .mobile-certificate-delete {
+    margin-left: auto;
+  }
 }
