@@ -25,7 +25,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="styles.css?v=202608271100">
+  <link rel="stylesheet" href="styles.css?v=202608271140">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="pwa-icon-192.png">
   <link rel="apple-touch-icon" sizes="192x192" href="pwa-icon-192.png">
@@ -270,9 +270,18 @@
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">제품 목록을 등록·수정하고 생산 중단 및 검사 이력을 관리합니다.</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <button onclick="document.getElementById('excel-import-file').click()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition">
+            <button onclick="exportProductsCertificatesExcel()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition" title="현재 제품과 성적서 데이터를 한 파일로 내보냅니다.">
+              <i data-lucide="file-down" class="w-4 h-4"></i>
+              <span>제품·성적서 Excel</span>
+            </button>
+            <button onclick="document.getElementById('products-certificates-excel-import').click()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-violet-50 text-violet-700 hover:bg-violet-100 dark:bg-violet-950/40 dark:text-violet-300 border border-violet-200 dark:border-violet-800 transition" title="앱에서 내보낸 제품·성적서 Excel 파일을 가져옵니다.">
+              <i data-lucide="file-up" class="w-4 h-4"></i>
+              <span>통합 Excel 가져오기</span>
+            </button>
+            <input type="file" id="products-certificates-excel-import" onchange="importProductsCertificatesExcel(event)" accept=".xlsx, .xls" class="hidden">
+            <button onclick="document.getElementById('excel-import-file').click()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition" title="제품 목록만 빠르게 추가할 때 사용합니다.">
               <i data-lucide="upload" class="w-4 h-4"></i>
-              <span>엑셀 일괄 업로드</span>
+              <span>제품만 Excel 등록</span>
             </button>
             <input type="file" id="excel-import-file" onchange="handleExcelUpload(event)" accept=".xlsx, .xls, .csv" class="hidden">
             <button onclick="openAddProductModal()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition">
@@ -981,6 +990,6 @@
   <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
 
   <script src="runtime-config.js"></script>
-  <script src="app.js?v=202608271100"></script>
+  <script src="app.js?v=202608271140"></script>
 </body>
 </html>

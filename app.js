@@ -2840,6 +2840,251 @@ function exportScheduleExcel() {
   showToast('엑셀 보고서가 다운로드되었습니다.', 'success');
 }
 
+function normalizeDataExcelText(value) {
+  return String(value ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeDataExcelDate(value) {
+  return normalizeHealthExcelDate(value);
+}
+
+function getDataExcelValue(row, names) {
+  for (const name of names) {
+    const value = row?.[name];
+    if (value !== undefined && value !== null && String(value).trim() !== '') return value;
+  }
+  return '';
+}
+
+function getProductExcelKey(product) {
+  return normalizeDataExcelText(product?.name).toLocaleLowerCase('ko-KR');
+}
+
+function getCertificateExcelKey(certificate) {
+  return [
+    normalizeDataExcelText(certificate?.certNumber).toLocaleLowerCase('ko-KR'),
+    String(certificate?.inspectionDate || ''),
+    Number(certificate?.productId || 0)
+  ].join('|');
+}
+
+function buildDataExcelSheet(rows, widths) {
+  const sheet = XLSX.utils.json_to_sheet(rows);
+  const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1:A1');
+  sheet['!cols'] = widths.map(wch => ({ wch }));
+  sheet['!freeze'] = { xSplit: 0, ySplit: 1 };
+  if (range.e.r >= 0) sheet['!autofilter'] = { ref: XLSX.utils.encode_range(range) };
+  Object.keys(sheet).filter(key => /^[A-Z]+1$/.test(key)).forEach(key => {
+    sheet[key].s = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '1F4E79' } }, alignment: { horizontal: 'center', vertical: 'center' } };
+  });
+  return sheet;
+}
+
+function exportProductsCertificatesExcel() {
+  if (!window.XLSX) {
+    showToast('엑셀 도구를 불러오는 중입니다. 잠시 후 다시 시도하세요.', 'error');
+    return;
+  }
+  const productRows = appState.products.map(product => {
+    const computed = getProductComputed(product);
+    return {
+      '제품ID': product.id,
+      '제품명': product.name || '',
+      '식품유형': computed.typeName || '',
+      '검사주기(개월)': Number(product.intervalMonths || 0),
+      '최근제조일': product.lastManufactureDate || '',
+      '생산상태': product.productionStatus === 'stopped' ? '중단' : '생산중',
+      '알림상태': product.alertStatus === 'paused' ? '일시중지' : '정상',
+      '비고': product.memo || ''
+    };
+  });
+  const certificateRows = appState.certificates.map(certificate => {
+    const classification = getCertificateClassification(certificate);
+    const product = appState.products.find(item => Number(item.id) === Number(certificate.productId));
+    return {
+      '성적서ID': certificate.id,
+      '성적서번호': certificate.certNumber || '',
+      '제품ID': certificate.productId || '',
+      '제품명': product?.name || '',
+      '식품유형': classification.type?.name || '',
+      '검사일': certificate.inspectionDate || '',
+      '제조일': classification.manufactureDate || '',
+      '검사예정일(자동)': getCertificateScheduledInspectionDate(certificate) || '',
+      '파일명': certificate.fileName || '',
+      '파일URL': getCertificateFileUrl(certificate) || '',
+      '비고': certificate.memo || ''
+    };
+  });
+  const guideRows = [
+    { '구분': '가져오기 원칙', '내용': '제품 데이터·성적서 데이터 시트를 유지하고 첫 행의 열 제목을 변경하지 마세요.' },
+    { '구분': '병합 기준', '내용': '제품은 제품ID 우선(없으면 제품명), 성적서는 성적서ID 우선(없으면 성적서번호·검사일·제품ID)으로 기존 행을 갱신합니다.' },
+    { '구분': '안전 규칙', '내용': '가져오기는 신규 추가 또는 기존 갱신만 수행하며, 파일에 없는 기존 데이터는 삭제하지 않습니다.' },
+    { '구분': '날짜 형식', '내용': '최근제조일·검사일·제조일은 YYYY-MM-DD 형식으로 입력합니다.' },
+    { '구분': '파일 정보', '내용': '파일URL은 원본 파일을 새로 업로드하지 않습니다. 기존 저장소 URL을 보존하거나 이미 접근 가능한 URL만 입력하세요.' },
+    { '구분': '성적서 메타데이터', '내용': '식품유형과 제조일을 입력하면 현재 유형별 검사 주기로 검사예정일과 캘린더가 자동 재계산됩니다.' }
+  ];
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, buildDataExcelSheet(productRows, [10, 28, 18, 14, 15, 12, 12, 32]), '제품 데이터');
+  XLSX.utils.book_append_sheet(workbook, buildDataExcelSheet(certificateRows, [11, 22, 10, 28, 18, 14, 14, 17, 38, 54, 32]), '성적서 데이터');
+  XLSX.utils.book_append_sheet(workbook, buildDataExcelSheet(guideRows, [22, 96]), '작성 안내');
+  XLSX.writeFile(workbook, `코엔에프_제품_성적서_통합_${getTodayKstStr()}.xlsx`);
+  showToast(`제품 ${productRows.length}건 · 성적서 ${certificateRows.length}건을 Excel로 내보냈습니다.`, 'success');
+}
+
+function parseProductsCertificatesExcel(workbook) {
+  const productsSheet = workbook.Sheets['제품 데이터'];
+  const certificatesSheet = workbook.Sheets['성적서 데이터'];
+  if (!productsSheet && !certificatesSheet) throw new Error('`제품 데이터` 또는 `성적서 데이터` 시트를 찾을 수 없습니다. 앱에서 내보낸 양식을 사용하세요.');
+  return {
+    products: productsSheet ? XLSX.utils.sheet_to_json(productsSheet, { defval: '', raw: false }) : [],
+    certificates: certificatesSheet ? XLSX.utils.sheet_to_json(certificatesSheet, { defval: '', raw: false }) : []
+  };
+}
+
+async function ensureDataExcelType(typeName, intervalMonths) {
+  const name = normalizeDataExcelText(typeName) || '기타가공품';
+  let type = appState.types.find(item => normalizeDataExcelText(item.name) === name);
+  if (type) return type;
+  const interval = Math.min(24, Math.max(1, Number(intervalMonths) || 2));
+  if (supabaseClient && isCloudConnected) {
+    const { data, error } = await supabaseClient.from('quality_types').insert([{ name, interval_months: interval, test_items: '' }]).select().single();
+    if (error) throw error;
+    type = { id: data.id, name: data.name, intervalMonths: data.interval_months, testItems: data.test_items || '' };
+  } else {
+    const nextId = appState.types.length ? Math.max(...appState.types.map(item => Number(item.id) || 0)) + 1 : 1;
+    type = { id: nextId, name, intervalMonths: interval, testItems: '' };
+  }
+  appState.types.push(type);
+  return type;
+}
+
+async function importProductsCertificatesExcel(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const cloudMode = Boolean(supabaseClient && isCloudConnected);
+  try {
+    if (!window.XLSX) throw new Error('엑셀 도구를 불러오지 못했습니다.');
+    const binary = await file.arrayBuffer();
+    const workbook = XLSX.read(binary, { type: 'array', cellDates: true });
+    const parsed = parseProductsCertificatesExcel(workbook);
+    const productRows = parsed.products.filter(row => Object.values(row).some(value => normalizeDataExcelText(value)));
+    const certificateRows = parsed.certificates.filter(row => Object.values(row).some(value => normalizeDataExcelText(value)));
+    if (!productRows.length && !certificateRows.length) throw new Error('가져올 제품 또는 성적서 행이 없습니다.');
+    if (!confirm(`제품 ${productRows.length}건 · 성적서 ${certificateRows.length}건을 검사합니다. 기존 ID 또는 동일 기준 행은 갱신하고, 나머지는 추가합니다. 파일에 없는 기존 데이터는 삭제하지 않습니다. 계속하시겠습니까?`)) return;
+
+    let addedProducts = 0;
+    let updatedProducts = 0;
+    let addedCertificates = 0;
+    let updatedCertificates = 0;
+    const productById = new Map(appState.products.map(product => [Number(product.id), product]));
+    const productByName = new Map(appState.products.map(product => [getProductExcelKey(product), product]));
+
+    for (let index = 0; index < productRows.length; index += 1) {
+      const row = productRows[index];
+      const name = normalizeDataExcelText(getDataExcelValue(row, ['제품명', '품목명', 'name']));
+      if (!name) throw new Error(`제품 데이터 ${index + 2}행: 제품명이 비어 있습니다.`);
+      const type = await ensureDataExcelType(getDataExcelValue(row, ['식품유형', '유형']), getDataExcelValue(row, ['검사주기(개월)', '검사주기']));
+      const interval = Math.min(24, Math.max(1, Number(getDataExcelValue(row, ['검사주기(개월)', '검사주기'])) || Number(type.intervalMonths) || 2));
+      const manufactureDate = normalizeDataExcelDate(getDataExcelValue(row, ['최근제조일', '제조일', '최근제조검사일']));
+      if (!manufactureDate) throw new Error(`제품 데이터 ${index + 2}행: 최근제조일을 YYYY-MM-DD 형식으로 입력하세요.`);
+      const incomingId = Number(getDataExcelValue(row, ['제품ID', 'ID'])) || 0;
+      const existing = productById.get(incomingId) || productByName.get(name.toLocaleLowerCase('ko-KR'));
+      const payload = {
+        name,
+        type_id: Number(type.id),
+        interval_months: interval,
+        last_manufacture_date: manufactureDate,
+        memo: normalizeDataExcelText(getDataExcelValue(row, ['비고', '메모'])),
+        production_status: normalizeDataExcelText(getDataExcelValue(row, ['생산상태'])) === '중단' ? 'stopped' : 'active',
+        alert_status: normalizeDataExcelText(getDataExcelValue(row, ['알림상태'])) === '일시중지' ? 'paused' : 'active'
+      };
+      let saved;
+      if (cloudMode) {
+        const request = existing
+          ? supabaseClient.from('quality_products').update(payload).eq('id', Number(existing.id)).select().single()
+          : supabaseClient.from('quality_products').insert([payload]).select().single();
+        const { data, error } = await request;
+        if (error) throw new Error(`제품 데이터 ${index + 2}행: ${error.message}`);
+        saved = { id: data.id, typeId: data.type_id, name: data.name, intervalMonths: data.interval_months, lastManufactureDate: data.last_manufacture_date, memo: data.memo || '', productionStatus: data.production_status || 'active', stopReason: data.stop_reason || '', alertStatus: data.alert_status || 'active' };
+      } else if (existing) {
+        Object.assign(existing, { id: existing.id, typeId: payload.type_id, name, intervalMonths: interval, lastManufactureDate: manufactureDate, memo: payload.memo, productionStatus: payload.production_status, alertStatus: payload.alert_status });
+        saved = existing;
+      } else {
+        const nextId = appState.products.length ? Math.max(...appState.products.map(product => Number(product.id) || 0)) + 1 : 1;
+        saved = { id: nextId, typeId: payload.type_id, name, intervalMonths: interval, lastManufactureDate: manufactureDate, memo: payload.memo, productionStatus: payload.production_status, stopReason: '', alertStatus: payload.alert_status };
+        appState.products.push(saved);
+      }
+      productById.set(Number(saved.id), saved);
+      productByName.set(getProductExcelKey(saved), saved);
+      if (existing) updatedProducts += 1; else addedProducts += 1;
+    }
+    if (cloudMode) await loadCloudState();
+
+    const certificateById = new Map(appState.certificates.map(certificate => [Number(certificate.id), certificate]));
+    const certificateByKey = new Map(appState.certificates.map(certificate => [getCertificateExcelKey(certificate), certificate]));
+    const metadata = getCertificateMetadataMap();
+    for (let index = 0; index < certificateRows.length; index += 1) {
+      const row = certificateRows[index];
+      const certNumber = normalizeDataExcelText(getDataExcelValue(row, ['성적서번호', '성적서 번호', 'certNumber']));
+      const inspectionDate = normalizeDataExcelDate(getDataExcelValue(row, ['검사일', '검사일자', 'inspectionDate']));
+      if (!certNumber || !inspectionDate) throw new Error(`성적서 데이터 ${index + 2}행: 성적서번호와 검사일은 필수입니다.`);
+      const incomingProductId = Number(getDataExcelValue(row, ['제품ID'])) || 0;
+      const productName = normalizeDataExcelText(getDataExcelValue(row, ['제품명', '품목명']));
+      const product = appState.products.find(item => Number(item.id) === incomingProductId) || productByName.get(productName.toLocaleLowerCase('ko-KR')) || null;
+      const incomingId = Number(getDataExcelValue(row, ['성적서ID', 'ID'])) || 0;
+      const key = getCertificateExcelKey({ certNumber, inspectionDate, productId: product?.id || 0 });
+      const existing = certificateById.get(incomingId) || certificateByKey.get(key);
+      const fileUrl = normalizeDataExcelText(getDataExcelValue(row, ['파일URL', '파일주소']));
+      const fileName = normalizeDataExcelText(getDataExcelValue(row, ['파일명']));
+      const payload = { cert_number: certNumber, product_id: product ? Number(product.id) : null, inspection_date: inspectionDate, memo: normalizeDataExcelText(getDataExcelValue(row, ['비고', '메모'])) };
+      if (fileUrl) payload.file_url = fileUrl;
+      if (fileName) payload.file_name = fileName;
+      let saved;
+      if (cloudMode) {
+        const request = existing
+          ? supabaseClient.from('quality_certificates').update(payload).eq('id', Number(existing.id)).select().single()
+          : supabaseClient.from('quality_certificates').insert([{ ...payload, file_url: payload.file_url || '', file_name: payload.file_name || '', file_size: 0 }]).select().single();
+        const { data, error } = await request;
+        if (error) throw new Error(`성적서 데이터 ${index + 2}행: ${error.message}`);
+        saved = { id: data.id, certNumber: data.cert_number, productId: data.product_id, inspectionDate: data.inspection_date, fileUrl: data.file_url || '', fileName: data.file_name || '', fileSize: data.file_size || 0, memo: data.memo || '', createdAt: data.created_at };
+      } else if (existing) {
+        Object.assign(existing, { certNumber, productId: product?.id || null, inspectionDate, memo: payload.memo });
+        if (fileUrl) existing.fileUrl = fileUrl;
+        if (fileName) existing.fileName = fileName;
+        saved = existing;
+      } else {
+        const nextId = appState.certificates.length ? Math.max(...appState.certificates.map(certificate => Number(certificate.id) || 0)) + 1 : 1;
+        saved = { id: nextId, certNumber, productId: product?.id || null, inspectionDate, fileUrl, fileName, fileSize: 0, memo: payload.memo, createdAt: new Date().toISOString() };
+        appState.certificates.push(saved);
+      }
+      const typeName = normalizeDataExcelText(getDataExcelValue(row, ['식품유형', '유형'])) || (product ? appState.types.find(item => Number(item.id) === Number(product.typeId))?.name : '');
+      const type = typeName ? await ensureDataExcelType(typeName, product?.intervalMonths) : null;
+      const manufactureDate = normalizeDataExcelDate(getDataExcelValue(row, ['제조일']));
+      const existingMeta = metadata[String(saved.id)] || {};
+      metadata[String(saved.id)] = {
+        ...existingMeta,
+        ...(type ? { typeId: Number(type.id) } : {}),
+        ...(manufactureDate ? { manufactureDate } : {}),
+        source: 'Excel 가져오기',
+        updatedAt: new Date().toISOString()
+      };
+      if (type && manufactureDate) metadata[String(saved.id)].scheduledInspectionDate = calcNextDeadline(manufactureDate, Number(type.intervalMonths || 0));
+      certificateById.set(Number(saved.id), saved);
+      certificateByKey.set(getCertificateExcelKey(saved), saved);
+      if (existing) updatedCertificates += 1; else addedCertificates += 1;
+    }
+    if (certificateRows.length) await saveCertificateMetadataMap(metadata);
+    if (cloudMode) await loadCloudState();
+    else { saveLocalState(); renderCurrentTab(); }
+    showToast(`Excel 가져오기 완료: 제품 신규 ${addedProducts}건·갱신 ${updatedProducts}건, 성적서 신규 ${addedCertificates}건·갱신 ${updatedCertificates}건`, 'success');
+  } catch (error) {
+    console.error('제품·성적서 Excel 가져오기 실패:', error);
+    showToast(`Excel 가져오기에 실패했습니다. ${error?.message || '파일 양식과 데이터를 확인하세요.'}`, 'error');
+  } finally {
+    event.target.value = '';
+  }
+}
+
 function downloadHealthExcelTemplate() {
   if (!window.XLSX) {
     showToast('엑셀 양식 생성 도구를 불러오는 중입니다. 잠시 후 다시 시도하세요.', 'error');
@@ -3731,7 +3976,7 @@ async function installPwaApp() {
 function registerPwa() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=202608271100', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=202608271140', { scope: './' })
       .then(() => console.info('PWA 서비스 워커가 등록되었습니다.'))
       .catch(error => console.warn('PWA 서비스 워커 등록 실패:', error));
   });
