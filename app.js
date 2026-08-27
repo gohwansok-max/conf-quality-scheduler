@@ -476,7 +476,7 @@ async function handleSaveCertificateAssignment(event) {
       if (sameName) {
         product = sameName;
       } else if (supabaseClient && isCloudConnected) {
-        const { data, error } = await insertCloudProductWithIdRecovery({ name: newProductName, type_id: Number(type.id), interval_months: Number(type.intervalMonths || 2), last_manufacture_date: manufactureDate, memo: '성적서 직접 등록으로 추가' });
+        const { data, error } = await retryCloudMutation(() => insertCloudProductWithIdRecovery({ name: newProductName, type_id: Number(type.id), interval_months: Number(type.intervalMonths || 2), last_manufacture_date: manufactureDate, memo: '성적서 직접 등록으로 추가' }));
         if (error || !data) throw error || new Error('새 제품 등록 결과를 확인하지 못했습니다.');
         product = toAppProduct(data);
         appState.products.push(product);
@@ -488,24 +488,24 @@ async function handleSaveCertificateAssignment(event) {
       }
     }
     if (supabaseClient && isCloudConnected) {
-      const { data, error } = await supabaseClient
+      const { data, error } = await retryCloudMutation(() => supabaseClient
         .from('quality_certificates')
         .update({ product_id: Number(product.id) })
         .eq('id', Number(certificate.id))
         .select()
-        .single();
+        .single());
       if (error || !data) throw error || new Error('성적서의 제품 연결 결과를 확인하지 못했습니다.');
       syncSavedCertificate(data);
     } else {
       certificate.productId = Number(product.id);
       saveLocalState();
     }
-    await updateCertificateMetadata(certificate.id, {
+    await retryCloudMutation(() => updateCertificateMetadata(certificate.id, {
       typeId: Number(type.id),
       manufactureDate,
       scheduledInspectionDate: calcNextDeadline(manufactureDate, Number(type.intervalMonths || 0)),
       source: '성적서 직접 등록'
-    });
+    }));
     if (supabaseClient && isCloudConnected) await loadCloudState();
     else renderCertificates();
     closeModal('modal-certificate-assignment');
@@ -1574,11 +1574,83 @@ function renderDashboard() {
   lucide.createIcons();
 }
 
+function updateProductManagementFilters() {
+  renderProductManagementWorkspace();
+}
+
+function resetProductManagementFilters() {
+  const query = document.getElementById('product-manager-query');
+  const type = document.getElementById('product-manager-type');
+  const status = document.getElementById('product-manager-status');
+  if (query) query.value = '';
+  if (type) type.value = 'all';
+  if (status) status.value = 'all';
+  renderProductManagementWorkspace();
+}
+
+function renderProductManagementWorkspace() {
+  const target = document.getElementById('product-manager-list');
+  const typeFilter = document.getElementById('product-manager-type');
+  const statusFilter = document.getElementById('product-manager-status');
+  const queryInput = document.getElementById('product-manager-query');
+  const count = document.getElementById('product-manager-count');
+  if (!target || !typeFilter || !statusFilter || !queryInput) return;
+
+  const selectedType = typeFilter.value || 'all';
+  typeFilter.innerHTML = `<option value="all">전체 유형</option>${appState.types.map(type => `<option value="${type.id}">${escapeHtml(type.name)}</option>`).join('')}`;
+  typeFilter.value = [...typeFilter.options].some(option => option.value === selectedType) ? selectedType : 'all';
+  const query = normalizeDataExcelText(queryInput.value).toLocaleLowerCase('ko-KR');
+  const products = appState.products.map(getProductComputed).filter(product => {
+    const matchesQuery = !query || normalizeDataExcelText(product.name).toLocaleLowerCase('ko-KR').includes(query);
+    const matchesType = typeFilter.value === 'all' || Number(product.typeId) === Number(typeFilter.value);
+    const matchesStatus = statusFilter.value === 'all' || product.productionStatus === statusFilter.value;
+    return matchesQuery && matchesType && matchesStatus;
+  }).sort((left, right) => String(left.nextDeadline || '9999-12-31').localeCompare(String(right.nextDeadline || '9999-12-31')));
+
+  if (count) count.textContent = `총 ${appState.products.length}건 중 ${products.length}건 표시`;
+  if (!products.length) {
+    target.innerHTML = '<div class="product-manager-empty">조건에 맞는 제품이 없습니다.</div>';
+    return;
+  }
+  target.innerHTML = products.map(product => {
+    const statusLabel = product.productionStatus === 'stopped' ? '생산중단' : '생산중';
+    const statusClass = product.productionStatus === 'stopped' ? 'is-stopped' : 'is-active';
+    return `<article class="product-manager-card">
+      <div class="product-manager-card-head"><div class="min-w-0"><strong title="${escapeHtml(product.name)}">${escapeHtml(product.name)}</strong><span>${escapeHtml(product.typeName)} · ${product.intervalMonths}개월</span></div><span class="product-manager-status ${statusClass}">${statusLabel}</span></div>
+      <dl><div><dt>최근 제조일</dt><dd>${product.lastManufactureDate || '미입력'}</dd></div><div><dt>다음 검사일</dt><dd>${product.nextDeadline || '미입력'}</dd></div></dl>
+      <div class="product-manager-card-actions"><button type="button" onclick="openEditProductModal(${Number(product.id)})"><i data-lucide="pencil" class="w-3.5 h-3.5"></i>수정</button><button type="button" onclick="viewHistory(${Number(product.id)})"><i data-lucide="history" class="w-3.5 h-3.5"></i>이력</button></div>
+    </article>`;
+  }).join('');
+  lucide.createIcons();
+}
+
+function checkProductNameAvailability() {
+  const input = document.getElementById('prod-name');
+  const status = document.getElementById('prod-name-status');
+  const editId = Number(document.getElementById('prod-id')?.value || 0);
+  if (!input || !status) return;
+  const name = normalizeDataExcelText(input.value);
+  if (!name) {
+    status.textContent = '제품명은 공백을 제외하고 비교합니다.';
+    status.className = 'mt-1 min-h-4 text-[11px] text-slate-400';
+    return;
+  }
+  const same = appState.products.find(product => Number(product.id) !== editId && getProductExcelKey(product) === name.toLocaleLowerCase('ko-KR'));
+  if (same) {
+    status.textContent = `'${same.name}' 제품이 이미 등록되어 있습니다. 제품 목록 관리에서 수정하세요.`;
+    status.className = 'mt-1 min-h-4 text-[11px] font-medium text-red-600 dark:text-red-300';
+  } else {
+    status.textContent = '등록 가능한 제품명입니다.';
+    status.className = 'mt-1 min-h-4 text-[11px] font-medium text-emerald-600 dark:text-emerald-300';
+  }
+}
+
 function renderProducts() {
   const tbody = document.getElementById('products-table-body');
   if (!tbody) return;
 
   const computedProducts = appState.products.map(getProductComputed);
+  renderProductManagementWorkspace();
   if (computedProducts.length === 0) {
     tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-400">등록된 제품이 없습니다. 새 제품을 추가하세요.</td></tr>`;
     return;
@@ -1968,6 +2040,7 @@ function openAddProductModal() {
   const typeSelect = document.getElementById('prod-type-id');
   typeSelect.innerHTML = appState.types.map(t => `<option value="${t.id}">${escapeHtml(t.name)} (${t.intervalMonths}개월)</option>`).join('');
   document.getElementById('prod-interval').value = appState.types[0].intervalMonths;
+  checkProductNameAvailability();
   openModal('modal-product');
 }
 
@@ -1992,6 +2065,7 @@ function openEditProductModal(id) {
 
   const typeSelect = document.getElementById('prod-type-id');
   typeSelect.innerHTML = appState.types.map(t => `<option value="${t.id}" ${t.id === p.typeId ? 'selected' : ''}>${t.name} (${t.intervalMonths}개월)</option>`).join('');
+  checkProductNameAvailability();
   openModal('modal-product');
 }
 
@@ -2083,6 +2157,11 @@ async function handleSaveProduct(e) {
   }
   if (!selectedType) {
     showToast('등록된 식품유형을 선택하세요.', 'error');
+    return;
+  }
+  const sameNameProduct = appState.products.find(product => Number(product.id) !== Number(id || 0) && getProductExcelKey(product) === name.toLocaleLowerCase('ko-KR'));
+  if (sameNameProduct) {
+    showToast(`'${sameNameProduct.name}' 제품이 이미 등록되어 있습니다. 제품 목록 관리에서 수정하세요.`, 'error');
     return;
   }
   if (!Number.isInteger(intervalMonths) || intervalMonths < 1 || intervalMonths > 24) {
@@ -2812,9 +2891,33 @@ function setCertificateSaveInProgress(form, saving, savingLabel = '저장 중...
   saveButton.textContent = saving ? savingLabel : saveButton.dataset.defaultLabel;
 }
 
+function isTransientCloudError(error) {
+  const message = String(error?.message || error?.details || error || '').toLowerCase();
+  return error instanceof TypeError || message.includes('failed to fetch') || message.includes('networkerror') || message.includes('network request failed') || message.includes('timeout');
+}
+
+async function retryCloudMutation(operation, maxAttempts = 3) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const result = await operation();
+      if (!result?.error) return result;
+      lastError = result.error;
+    } catch (error) {
+      lastError = error;
+    }
+    if (!isTransientCloudError(lastError) || attempt === maxAttempts) break;
+    await new Promise(resolve => setTimeout(resolve, 450 * attempt));
+  }
+  throw lastError || new Error('클라우드 저장 결과를 확인하지 못했습니다.');
+}
+
 function getCertificateSaveErrorMessage(error) {
   const message = String(error?.message || error?.details || error || '알 수 없는 오류');
   const normalized = message.toLowerCase();
+  if (isTransientCloudError(error)) {
+    return '클라우드 저장 연결이 일시적으로 실패했습니다. 입력값은 유지됩니다. 인터넷 연결을 확인한 뒤 다시 저장하세요.';
+  }
   if (normalized.includes('bucket') || normalized.includes('storage')) {
     return '성적서 파일 저장소에 업로드하지 못했습니다. 잠시 후 다시 시도하세요.';
   }
@@ -3018,6 +3121,62 @@ function getProductExcelKey(product) {
   return normalizeDataExcelText(product?.name).toLocaleLowerCase('ko-KR');
 }
 
+function validateExcelCertificateProductMatching(certificateRows, productRows) {
+  const currentProducts = appState.products.map(product => ({ id: Number(product.id), name: product.name, source: '현재 제품 목록' }));
+  const incomingProducts = productRows.map((row, index) => ({
+    id: Number(getDataExcelValue(row, ['제품ID', 'ID'])) || 0,
+    name: normalizeDataExcelText(getDataExcelValue(row, ['제품명', '품목명', 'name'])),
+    source: `제품 데이터 ${index + 2}행`
+  })).filter(product => product.name);
+  const productById = new Map(currentProducts.map(product => [Number(product.id), product]));
+  const productByName = new Map();
+  [...currentProducts, ...incomingProducts].forEach(product => {
+    const key = getProductExcelKey(product);
+    if (!key) return;
+    const matches = productByName.get(key) || [];
+    if (!matches.some(match => Number(match.id) === Number(product.id) && match.name === product.name)) matches.push(product);
+    productByName.set(key, matches);
+  });
+
+  const errors = [];
+  const summary = { matchedById: 0, matchedByName: 0, retainedUnlinked: 0, warnings: [] };
+  certificateRows.forEach((row, index) => {
+    const rowLabel = `성적서 데이터 ${index + 2}행`;
+    const incomingCertificateId = Number(getDataExcelValue(row, ['성적서ID', 'ID'])) || 0;
+    const incomingProductId = Number(getDataExcelValue(row, ['제품ID'])) || 0;
+    const productName = normalizeDataExcelText(getDataExcelValue(row, ['제품명', '품목명']));
+    const idProduct = incomingProductId ? productById.get(incomingProductId) : null;
+    const nameMatches = productName ? (productByName.get(productName.toLocaleLowerCase('ko-KR')) || []) : [];
+    const existingCertificate = incomingCertificateId ? appState.certificates.find(certificate => Number(certificate.id) === incomingCertificateId) : null;
+
+    if (incomingProductId && !idProduct) {
+      errors.push(`${rowLabel}: 제품ID ${incomingProductId}를 찾지 못했습니다. 제품 데이터 시트의 ID를 확인하거나 제품명을 정확히 입력하세요.`);
+      return;
+    }
+    if (productName && !nameMatches.length) {
+      errors.push(`${rowLabel}: 제품명 '${productName}'이(가) 현재 목록 또는 제품 데이터 시트와 일치하지 않습니다.`);
+      return;
+    }
+    if (nameMatches.length > 1 && !idProduct) {
+      errors.push(`${rowLabel}: 제품명 '${productName}'이(가) 여러 제품과 일치합니다. 제품ID를 지정하세요.`);
+      return;
+    }
+    if (idProduct && productName && getProductExcelKey(idProduct) !== productName.toLocaleLowerCase('ko-KR')) {
+      errors.push(`${rowLabel}: 제품ID ${incomingProductId}의 제품명 '${idProduct.name}'과 입력한 제품명 '${productName}'이(가) 다릅니다.`);
+      return;
+    }
+    if (idProduct) summary.matchedById += 1;
+    else if (nameMatches.length === 1) summary.matchedByName += 1;
+    else if (existingCertificate && !existingCertificate.productId) {
+      summary.retainedUnlinked += 1;
+      summary.warnings.push(`${rowLabel}: 기존 미연결 성적서로 유지됩니다.`);
+    } else {
+      errors.push(`${rowLabel}: 제품ID 또는 제품명이 비어 있습니다. 성적서는 반드시 등록된 제품과 연결해야 합니다.`);
+    }
+  });
+  return { errors, summary };
+}
+
 function getCertificateExcelKey(certificate) {
   return [
     normalizeDataExcelText(certificate?.certNumber).toLocaleLowerCase('ko-KR'),
@@ -3128,7 +3287,12 @@ async function importProductsCertificatesExcel(event) {
     const productRows = parsed.products.filter(row => Object.values(row).some(value => normalizeDataExcelText(value)));
     const certificateRows = parsed.certificates.filter(row => Object.values(row).some(value => normalizeDataExcelText(value)));
     if (!productRows.length && !certificateRows.length) throw new Error('가져올 제품 또는 성적서 행이 없습니다.');
-    if (!confirm(`제품 ${productRows.length}건 · 성적서 ${certificateRows.length}건을 검사합니다. 기존 ID 또는 동일 기준 행은 갱신하고, 나머지는 추가합니다. 파일에 없는 기존 데이터는 삭제하지 않습니다. 계속하시겠습니까?`)) return;
+    const matchValidation = validateExcelCertificateProductMatching(certificateRows, productRows);
+    if (matchValidation.errors.length) {
+      throw new Error(`제품명 매칭 검증 실패 (${matchValidation.errors.length}건)\n${matchValidation.errors.slice(0, 5).join('\n')}${matchValidation.errors.length > 5 ? `\n외 ${matchValidation.errors.length - 5}건` : ''}`);
+    }
+    const matchSummary = `제품ID 일치 ${matchValidation.summary.matchedById}건 · 제품명 일치 ${matchValidation.summary.matchedByName}건${matchValidation.summary.retainedUnlinked ? ` · 기존 미연결 유지 ${matchValidation.summary.retainedUnlinked}건` : ''}`;
+    if (!confirm(`제품 ${productRows.length}건 · 성적서 ${certificateRows.length}건을 검사합니다.\n제품명 매칭 검증: ${matchSummary}\n\n기존 ID 또는 동일 기준 행은 갱신하고, 나머지는 추가합니다. 파일에 없는 기존 데이터는 삭제하지 않습니다. 계속하시겠습니까?`)) return;
 
     let addedProducts = 0;
     let updatedProducts = 0;
@@ -3189,6 +3353,7 @@ async function importProductsCertificatesExcel(event) {
       const incomingProductId = Number(getDataExcelValue(row, ['제품ID'])) || 0;
       const productName = normalizeDataExcelText(getDataExcelValue(row, ['제품명', '품목명']));
       const product = appState.products.find(item => Number(item.id) === incomingProductId) || productByName.get(productName.toLocaleLowerCase('ko-KR')) || null;
+      if ((incomingProductId || productName) && !product) throw new Error(`성적서 데이터 ${index + 2}행: 제품 매칭 검증 이후 제품 정보를 찾지 못했습니다. 파일을 다시 확인하세요.`);
       const incomingId = Number(getDataExcelValue(row, ['성적서ID', 'ID'])) || 0;
       const key = getCertificateExcelKey({ certNumber, inspectionDate, productId: product?.id || 0 });
       const existing = certificateById.get(incomingId) || certificateByKey.get(key);
@@ -4134,7 +4299,7 @@ async function installPwaApp() {
 function registerPwa() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=202608271170', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=202608271171', { scope: './' })
       .then(() => console.info('PWA 서비스 워커가 등록되었습니다.'))
       .catch(error => console.warn('PWA 서비스 워커 등록 실패:', error));
   });

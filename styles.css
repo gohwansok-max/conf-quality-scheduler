@@ -1357,3 +1357,41 @@ tr.table-row-hover:hover {
     margin-left: auto;
   }
 }
+
+/* 제품 목록 관리 및 모바일 제품 등록 */
+.product-manager-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: rgb(255 255 255);
+}
+.dark .product-manager-card { border-color: rgb(51 65 85); background: rgb(15 23 42); }
+.product-manager-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+.product-manager-card-head strong { display: block; overflow: hidden; color: rgb(15 23 42); font-size: 0.8125rem; line-height: 1.25rem; text-overflow: ellipsis; white-space: nowrap; }
+.dark .product-manager-card-head strong { color: rgb(248 250 252); }
+.product-manager-card-head span:not(.product-manager-status) { display: block; margin-top: 0.125rem; color: rgb(100 116 139); font-size: 0.6875rem; }
+.product-manager-status { flex: none; border-radius: 9999px; padding: 0.2rem 0.45rem; font-size: 0.625rem; font-weight: 700; white-space: nowrap; }
+.product-manager-status.is-active { background: rgb(236 253 245); color: rgb(4 120 87); }
+.product-manager-status.is-stopped { background: rgb(241 245 249); color: rgb(71 85 105); }
+.dark .product-manager-status.is-active { background: rgb(6 78 59 / 0.45); color: rgb(110 231 183); }
+.dark .product-manager-status.is-stopped { background: rgb(51 65 85); color: rgb(203 213 225); }
+.product-manager-card dl { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.product-manager-card dl div { border-radius: 0.5rem; background: rgb(248 250 252); padding: 0.5rem; }
+.dark .product-manager-card dl div { background: rgb(30 41 59); }
+.product-manager-card dt { color: rgb(100 116 139); font-size: 0.625rem; }
+.product-manager-card dd { margin-top: 0.15rem; color: rgb(30 41 59); font-size: 0.75rem; font-weight: 700; }
+.dark .product-manager-card dd { color: rgb(226 232 240); }
+.product-manager-card-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.product-manager-card-actions button { display: inline-flex; min-height: 2.25rem; align-items: center; justify-content: center; gap: 0.3rem; border-radius: 0.5rem; border: 1px solid rgb(203 213 225); color: rgb(51 65 85); font-size: 0.75rem; font-weight: 700; }
+.product-manager-card-actions button:first-child { border-color: rgb(191 219 254); background: rgb(239 246 255); color: rgb(29 78 216); }
+.dark .product-manager-card-actions button { border-color: rgb(71 85 105); color: rgb(203 213 225); }
+.dark .product-manager-card-actions button:first-child { border-color: rgb(30 64 175); background: rgb(23 37 84); color: rgb(147 197 253); }
+.product-manager-empty { grid-column: 1 / -1; border: 1px dashed rgb(203 213 225); border-radius: 0.75rem; padding: 1rem; color: rgb(100 116 139); font-size: 0.75rem; text-align: center; }
+@media (max-width: 390px) {
+  #modal-product .modal-content { max-height: 96vh; }
+  #modal-product form { padding-bottom: 0.25rem; }
+  .product-manager-card { padding: 0.75rem; }
+}
