@@ -166,10 +166,12 @@ function getCertificateManufactureDate(certificate) {
 
 function getCertificateScheduledInspectionDate(certificate) {
   const metadata = getCertificateMeta(certificate?.id);
-  if (metadata.scheduledInspectionDate) return metadata.scheduledInspectionDate;
   const classification = getCertificateClassification(certificate);
-  if (!classification.type || !classification.manufactureDate) return '';
-  return calcNextDeadline(classification.manufactureDate, Number(classification.type.intervalMonths || 0));
+  // 저장된 날짜는 기록용이며, 화면·캘린더는 현재 유형 주기로 항상 다시 계산합니다.
+  if (classification.type && classification.manufactureDate) {
+    return calcNextDeadline(classification.manufactureDate, Number(classification.type.intervalMonths || 0));
+  }
+  return metadata.scheduledInspectionDate || '';
 }
 
 function suggestCertificateTypeId(certificate) {
@@ -207,7 +209,7 @@ function buildCertificateScheduleRows() {
     return `<article class="certificate-schedule-row">
       <div class="certificate-schedule-title"><strong>${escapeHtml(description)}</strong><span title="${escapeHtml(certificate.fileName || '')}">${escapeHtml(certificate.fileName || '파일명 없음')}</span></div>
       <label><span>식품유형 *</span><select id="cert-schedule-type-${certificate.id}" onchange="updateCertificateSchedulePreview(${certificate.id})"><option value="">선택</option>${typeOptions}</select></label>
-      <label><span>제조일 *</span><input id="cert-schedule-manufacture-${certificate.id}" type="date" value="${manufactureDate}" onchange="updateCertificateSchedulePreview(${certificate.id})"></label>
+      <label><span>제조일 *</span><input id="cert-schedule-manufacture-${certificate.id}" type="date" value="${manufactureDate}" oninput="updateCertificateSchedulePreview(${certificate.id})" onchange="updateCertificateSchedulePreview(${certificate.id})"></label>
       <label><span>검사 예정일 (자동)</span><input id="cert-schedule-due-${certificate.id}" type="text" value="${scheduledDate}" readonly></label>
       <p id="cert-schedule-state-${certificate.id}">${scheduledDate && classification.type ? `${escapeHtml(classification.type.name)} · ${classification.type.intervalMonths}개월 주기` : '파일명 기준 유형이 제안될 수 있으며, 제조기록 기준으로 확인하세요.'}</p>
     </article>`;
@@ -1524,6 +1526,96 @@ function renderTypes() {
   lucide.createIcons();
 }
 
+function getTypeIntervalPreview(typeId, intervalMonths) {
+  const typeProducts = appState.products.filter(product => Number(product.typeId) === Number(typeId));
+  const activeProducts = typeProducts.filter(product => product.productionStatus !== 'stopped');
+  const productDates = (activeProducts.length ? activeProducts : typeProducts).map(product => product.lastManufactureDate).filter(Boolean);
+  const certificateDates = appState.certificates
+    .filter(certificate => Number(getCertificateClassification(certificate).typeId) === Number(typeId))
+    .map(getCertificateManufactureDate)
+    .filter(Boolean);
+  const referenceDate = [...productDates, ...certificateDates].sort().at(-1) || '';
+  return {
+    productCount: typeProducts.length,
+    referenceDate,
+    dueDate: referenceDate && intervalMonths ? calcNextDeadline(referenceDate, Number(intervalMonths)) : ''
+  };
+}
+
+function updateTypeIntervalSettingPreview(typeId) {
+  const input = document.getElementById(`type-interval-setting-${typeId}`);
+  const preview = document.getElementById(`type-interval-preview-${typeId}`);
+  const intervalMonths = Number(input?.value || 0);
+  const detail = getTypeIntervalPreview(typeId, intervalMonths);
+  if (preview) preview.textContent = detail.dueDate ? `기준 제조일 ${detail.referenceDate} → 검사 예정일 ${detail.dueDate}` : '기준 제조일이 없어 예정일을 계산할 수 없습니다.';
+}
+
+function renderTypeIntervalSettings() {
+  const list = document.getElementById('type-interval-settings-list');
+  if (!list) return;
+  list.innerHTML = appState.types.map(type => {
+    const preview = getTypeIntervalPreview(type.id, type.intervalMonths);
+    const text = preview.dueDate ? `기준 제조일 ${preview.referenceDate} → 검사 예정일 ${preview.dueDate}` : '기준 제조일이 없어 예정일을 계산할 수 없습니다.';
+    return `<article class="type-interval-setting-row">
+      <div><strong>${escapeHtml(type.name)}</strong><span>연결 제품 ${preview.productCount}개</span></div>
+      <label for="type-interval-setting-${type.id}"><span>내부 검사 주기 (개월)</span><input id="type-interval-setting-${type.id}" type="number" min="1" max="24" step="1" value="${Number(type.intervalMonths) || 1}" required oninput="updateTypeIntervalSettingPreview(${type.id})" onchange="updateTypeIntervalSettingPreview(${type.id})"></label>
+      <p id="type-interval-preview-${type.id}">${text}</p>
+    </article>`;
+  }).join('');
+}
+
+function openTypeIntervalSettingsModal() {
+  renderTypeIntervalSettings();
+  openModal('modal-type-interval-settings');
+  lucide.createIcons();
+}
+
+async function handleSaveTypeIntervalSettings(event) {
+  event.preventDefault();
+  const updates = appState.types.map(type => ({
+    type,
+    intervalMonths: Number(document.getElementById(`type-interval-setting-${type.id}`)?.value || 0)
+  })).filter(update => update.intervalMonths !== Number(update.type.intervalMonths));
+  if (!updates.length) return showToast('변경된 검사 주기가 없습니다.', 'info');
+  const invalid = updates.filter(update => !Number.isInteger(update.intervalMonths) || update.intervalMonths < 1 || update.intervalMonths > 24);
+  if (invalid.length) return showToast('검사 주기는 1~24개월의 정수로 입력하세요.', 'error');
+
+  const submit = document.getElementById('type-interval-settings-submit');
+  const originalText = submit?.textContent;
+  if (submit) { submit.disabled = true; submit.textContent = '저장 및 재계산 중...'; }
+  try {
+    if (supabaseClient && isCloudConnected) {
+      for (const update of updates) {
+        const { error: typeError } = await supabaseClient.from('quality_types').update({ interval_months: update.intervalMonths }).eq('id', Number(update.type.id));
+        if (typeError) throw typeError;
+        const productIds = appState.products.filter(product => Number(product.typeId) === Number(update.type.id)).map(product => Number(product.id));
+        if (productIds.length) {
+          const { error: productError } = await supabaseClient.from('quality_products').update({ interval_months: update.intervalMonths }).in('id', productIds);
+          if (productError) throw productError;
+        }
+      }
+      await loadCloudState();
+    } else {
+      updates.forEach(update => {
+        update.type.intervalMonths = update.intervalMonths;
+        appState.products.filter(product => Number(product.typeId) === Number(update.type.id)).forEach(product => { product.intervalMonths = update.intervalMonths; });
+      });
+      saveLocalState();
+    }
+    renderDashboard();
+    renderProducts();
+    renderTypes();
+    renderCertificates();
+    closeModal('modal-type-interval-settings');
+    showToast(`${updates.length}개 식품유형의 검사 주기를 저장하고 일정을 다시 계산했습니다.`, 'success');
+  } catch (error) {
+    console.error('식품유형 검사 주기 저장 실패:', error);
+    showToast('검사 주기를 저장하지 못했습니다. 클라우드 연결 및 권한을 확인하세요.', 'error');
+  } finally {
+    if (submit) { submit.disabled = false; submit.textContent = originalText || '주기 저장 및 일정 재계산'; }
+  }
+}
+
 function setHealthListFilter(filter) {
   healthListFilter = ['all', 'overdue', 'urgent', 'inactive'].includes(filter) ? filter : 'all';
   renderHealthCerts();
@@ -2254,7 +2346,13 @@ async function handleSaveType(e) {
   if (supabaseClient && isCloudConnected) {
     try {
       if (id) {
-        await supabaseClient.from('quality_types').update({ name, interval_months: intervalMonths, test_items: testItems }).eq('id', Number(id));
+        const { error: typeError } = await supabaseClient.from('quality_types').update({ name, interval_months: intervalMonths, test_items: testItems }).eq('id', Number(id));
+        if (typeError) throw typeError;
+        const productIds = appState.products.filter(product => Number(product.typeId) === Number(id)).map(product => Number(product.id));
+        if (productIds.length) {
+          const { error: productError } = await supabaseClient.from('quality_products').update({ interval_months: intervalMonths }).in('id', productIds);
+          if (productError) throw productError;
+        }
       } else {
         await supabaseClient.from('quality_types').insert([{ name, interval_months: intervalMonths, test_items: testItems }]);
       }
@@ -2262,11 +2360,18 @@ async function handleSaveType(e) {
       await loadCloudState();
     } catch (err) {
       console.error(err);
+      showToast('식품유형과 검사 주기를 저장하지 못했습니다. 클라우드 연결 및 권한을 확인하세요.', 'error');
+      return;
     }
   } else {
     if (id) {
       const t = appState.types.find(x => x.id === Number(id));
-      if (t) { t.name = name; t.intervalMonths = intervalMonths; t.testItems = testItems; }
+      if (t) {
+        t.name = name;
+        t.intervalMonths = intervalMonths;
+        t.testItems = testItems;
+        appState.products.filter(product => Number(product.typeId) === Number(id)).forEach(product => { product.intervalMonths = intervalMonths; });
+      }
     } else {
       const newId = appState.types.length ? Math.max(...appState.types.map(t => t.id)) + 1 : 1;
       appState.types.push({ id: newId, name, intervalMonths, testItems });
@@ -3626,7 +3731,7 @@ async function installPwaApp() {
 function registerPwa() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=202608271010', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=202608271100', { scope: './' })
       .then(() => console.info('PWA 서비스 워커가 등록되었습니다.'))
       .catch(error => console.warn('PWA 서비스 워커 등록 실패:', error));
   });

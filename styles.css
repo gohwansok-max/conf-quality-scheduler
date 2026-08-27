@@ -1323,3 +1323,25 @@ tr.table-row-hover:hover {
 @media (max-width: 639px) {
   html { overflow-x: hidden; }
 }
+
+
+/* 식품유형별 커스텀 검사 주기 설정 */
+.type-interval-settings-list { display: grid; gap: 0.65rem; max-height: 25rem; overflow-y: auto; padding-right: 0.2rem; }
+.type-interval-setting-row { display: grid; grid-template-columns: minmax(10rem, 1.5fr) minmax(10rem, 0.8fr); gap: 0.5rem 0.8rem; align-items: end; border: 1px solid #c7d2fe; border-radius: 0.7rem; background: #f8faff; padding: 0.75rem; }
+.type-interval-setting-row > div { display: grid; gap: 0.2rem; align-self: center; }
+.type-interval-setting-row strong { color: #312e81; font-size: 0.78rem; }
+.type-interval-setting-row > div span { color: #64748b; font-size: 0.65rem; }
+.type-interval-setting-row label { display: grid; gap: 0.25rem; }
+.type-interval-setting-row label > span { color: #475569; font-size: 0.65rem; font-weight: 800; }
+.type-interval-setting-row input { min-height: 2.35rem; width: 100%; border: 1px solid #a5b4fc; border-radius: 0.45rem; background: #fff; color: #312e81; font-size: 0.78rem; font-weight: 800; padding: 0.45rem 0.6rem; }
+.type-interval-setting-row p { grid-column: 1 / -1; margin: 0; border-top: 1px solid #e0e7ff; padding-top: 0.5rem; color: #4f46e5; font-size: 0.66rem; font-weight: 600; }
+.dark .type-interval-setting-row { border-color: #3730a3; background: #17153a; }
+.dark .type-interval-setting-row strong { color: #c7d2fe; }
+.dark .type-interval-setting-row > div span, .dark .type-interval-setting-row label > span { color: #94a3b8; }
+.dark .type-interval-setting-row input { border-color: #4f46e5; background: #1e1b4b; color: #e0e7ff; }
+.dark .type-interval-setting-row p { border-color: #312e81; color: #a5b4fc; }
+@media (max-width: 639px) {
+  .type-interval-settings-list { max-height: 22rem; }
+  .type-interval-setting-row { grid-template-columns: 1fr; gap: 0.55rem; }
+  .type-interval-setting-row input { font-size: 0.85rem; }
+}
