@@ -2568,6 +2568,20 @@ function openEditTypeModal(id) {
   openModal('modal-type');
 }
 
+async function insertCloudTypeWithIdRecovery(payload) {
+  let response = await retryCloudMutation(() => supabaseClient.from('quality_types').insert([payload]).select('id,name,interval_months').single());
+  if (!response.error || response.error.code !== '23505') return response;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { data: maxRows, error: maxError } = await supabaseClient.from('quality_types').select('id').order('id', { ascending: false }).limit(1);
+    if (maxError) return { data: null, error: maxError };
+    const nextId = Number(maxRows?.[0]?.id || 0) + 1;
+    response = await retryCloudMutation(() => supabaseClient.from('quality_types').insert([{ ...payload, id: nextId }]).select('id,name,interval_months').single());
+    if (!response.error || response.error.code !== '23505') return response;
+  }
+  return response;
+}
+
 async function handleSaveType(e) {
   e.preventDefault();
   const id = document.getElementById('type-id').value;
@@ -2577,6 +2591,10 @@ async function handleSaveType(e) {
 
   if (!name || !intervalMonths) {
     showToast('유형명과 검사 주기를 입력하세요.', 'error');
+    return;
+  }
+  if (!id && appState.types.some(type => String(type.name || '').replace(/\s+/g, '').toLowerCase() === name.replace(/\s+/g, '').toLowerCase())) {
+    showToast(`'${name}' 식품유형이 이미 등록되어 있습니다.`, 'error');
     return;
   }
 
@@ -2591,7 +2609,8 @@ async function handleSaveType(e) {
           if (productError) throw productError;
         }
       } else {
-        await supabaseClient.from('quality_types').insert([{ name, interval_months: intervalMonths, test_items: testItems }]);
+        const { error: typeError } = await insertCloudTypeWithIdRecovery({ name, interval_months: intervalMonths, test_items: testItems });
+        if (typeError) throw typeError;
       }
       showToast('식품유형이 클라우드에 저장되었습니다.', 'success');
       await loadCloudState();
@@ -4299,7 +4318,7 @@ async function installPwaApp() {
 function registerPwa() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=202608271171', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=202608271172', { scope: './' })
       .then(() => console.info('PWA 서비스 워커가 등록되었습니다.'))
       .catch(error => console.warn('PWA 서비스 워커 등록 실패:', error));
   });
