@@ -27,6 +27,102 @@ function downloadHealthFile(certificateId) {
   showToast('보관된 PDF가 없거나 서버 PDF 다운로드 주소가 설정되지 않았습니다.', 'error');
 }
 
+function getCertificateFileUrl(certificate) {
+  const rawUrl = String(certificate?.fileUrl || '').trim();
+  if (!rawUrl) return '';
+  try {
+    const url = new URL(rawUrl, window.location.href);
+    return ['https:', 'http:'].includes(url.protocol) ? url.href : '';
+  } catch (error) {
+    console.warn('성적서 파일 URL 형식 오류:', error);
+    return '';
+  }
+}
+
+function getCertificateDownloadUrl(certificate) {
+  const fileUrl = getCertificateFileUrl(certificate);
+  if (!fileUrl) return '';
+  try {
+    const url = new URL(fileUrl);
+    if (certificate?.fileName) url.searchParams.set('download', certificate.fileName);
+    return url.href;
+  } catch (error) {
+    return fileUrl;
+  }
+}
+
+function getCertificateFileKind(certificate) {
+  const name = String(certificate?.fileName || getCertificateFileUrl(certificate)).toLowerCase().split('?')[0];
+  if (/\.pdf$/.test(name)) return 'pdf';
+  if (/\.(png|jpe?g|gif|webp|bmp|svg)$/.test(name)) return 'image';
+  return 'other';
+}
+
+function getCertificateById(certificateId) {
+  return appState.certificates.find(item => Number(item.id) === Number(certificateId));
+}
+
+function openCertificateViewer(certificateId) {
+  const certificate = getCertificateById(certificateId);
+  const fileUrl = getCertificateFileUrl(certificate);
+  if (!certificate || !fileUrl) {
+    showToast('첨부 파일이 보관되지 않은 기존 성적서입니다. 파일 보완을 눌러 다시 첨부하세요.', 'error');
+    return;
+  }
+
+  const fileName = certificate.fileName || '성적서 파일';
+  const preview = document.getElementById('cert-preview-content');
+  const title = document.getElementById('cert-preview-title');
+  const meta = document.getElementById('cert-preview-meta');
+  const openLink = document.getElementById('cert-preview-new-tab');
+  if (!preview || !title || !meta || !openLink) return;
+
+  title.textContent = certificate.certNumber || '검사 성적서 열람';
+  meta.textContent = fileName;
+  openLink.href = fileUrl;
+  const escapedUrl = escapeHtml(fileUrl);
+  const kind = getCertificateFileKind(certificate);
+  if (kind === 'pdf') {
+    preview.innerHTML = `<iframe src="${escapedUrl}" title="${escapeHtml(fileName)}" class="h-[65vh] w-full rounded-lg border border-slate-200 bg-white dark:border-slate-700" loading="lazy"></iframe>`;
+  } else if (kind === 'image') {
+    preview.innerHTML = `<div class="flex h-[65vh] items-center justify-center overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950"><img src="${escapedUrl}" alt="${escapeHtml(fileName)}" class="max-h-full max-w-full rounded object-contain"></div>`;
+  } else {
+    preview.innerHTML = `<div class="flex h-48 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"><i data-lucide="file" class="h-8 w-8 text-blue-500"></i><p>이 파일 형식은 앱에서 미리 볼 수 없습니다.</p><a href="${escapedUrl}" target="_blank" rel="noopener" class="font-semibold text-blue-600 hover:underline">새 탭에서 열기</a></div>`;
+  }
+  openModal('modal-cert-preview');
+}
+
+function downloadCertFile(certificateId) {
+  const certificate = getCertificateById(certificateId);
+  const downloadUrl = getCertificateDownloadUrl(certificate);
+  if (!certificate || !downloadUrl) {
+    showToast('첨부 파일이 보관되지 않은 기존 성적서입니다. 파일 보완을 눌러 다시 첨부하세요.', 'error');
+    return;
+  }
+
+  const anchor = document.createElement('a');
+  anchor.href = downloadUrl;
+  anchor.download = certificate.fileName || '성적서 파일';
+  anchor.rel = 'noopener';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+}
+
+function certificateFileActionMarkup(certificate, mobile = false) {
+  const buttonClass = mobile
+    ? 'mobile-certificate-primary'
+    : 'inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300';
+  const compactClass = mobile
+    ? 'mobile-certificate-primary bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
+    : 'inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200';
+  const id = Number(certificate.id);
+  if (!getCertificateFileUrl(certificate)) {
+    return `<button type="button" onclick="openReplaceCertFileModal(${id})" class="${compactClass}" title="파일 보완"><i data-lucide="paperclip" class="w-3.5 h-3.5"></i><span>파일 보완</span></button>`;
+  }
+  return `<button type="button" onclick="openCertificateViewer(${id})" class="${buttonClass}" title="성적서 열람"><i data-lucide="eye" class="w-3.5 h-3.5"></i><span>열람</span></button><button type="button" onclick="downloadCertFile(${id})" class="${compactClass}" title="성적서 다운로드"><i data-lucide="download" class="w-3.5 h-3.5"></i><span>다운로드</span></button>`;
+}
+
 // ==================== 2. Supabase Client Setup ====================
 const SUPABASE_URL = 'https://hooaeqywrdihninxnvtb.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_3iDGX80MZlMhAPCthcBKDA_TDUHDwhz';
@@ -92,6 +188,8 @@ const DEFAULT_DATA = {
 let appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
 let isCloudConnected = false;
 let isSavingHealthCert = false;
+let isSavingProduct = false;
+let isSavingCertificate = false;
 let healthListFilter = 'all';
 let healthListSort = 'expires_asc';
 const healthManagementPendingIds = new Set();
@@ -1168,12 +1266,9 @@ function renderCertificates() {
         <td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-medium"><span class="table-text-one-line" title="${escapeHtml(c.fileName || '성적서.pdf')}">${escapeHtml(c.fileName || '성적서.pdf')}</span></td>
         <td class="py-3 px-4 text-slate-400 text-xs">${c.createdAt ? c.createdAt.slice(0, 10) : '-'}</td>
         <td class="py-3 px-4 text-right action-column">
-          <div class="flex items-center justify-end gap-2">
-            ${c.fileUrl 
-              ? `<a href="${c.fileUrl}" target="_blank" class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300"><i data-lucide="external-link" class="w-3.5 h-3.5"></i><span>열람/다운로드</span></a>`
-              : `<button onclick="downloadCertFile(${c.id})" class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300"><i data-lucide="download" class="w-3.5 h-3.5"></i><span>다운로드</span></button>`
-            }
-            <button onclick="deleteCert(${c.id})" class="p-1 text-slate-400 hover:text-red-600">
+          <div class="flex items-center justify-end gap-1.5">
+            ${certificateFileActionMarkup(c)}
+            <button type="button" onclick="deleteCert(${Number(c.id)})" class="p-1 text-slate-400 hover:text-red-600" title="성적서 삭제" aria-label="성적서 삭제">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
@@ -1188,9 +1283,7 @@ function renderCertificates() {
       const productName = product ? product.name : '전체/유형공통';
       const fileName = c.fileName || '성적서.pdf';
       const createdAt = c.createdAt ? c.createdAt.slice(0, 10) : '-';
-      const fileAction = c.fileUrl
-        ? `<a href="${c.fileUrl}" target="_blank" class="mobile-certificate-primary"><i data-lucide="external-link" class="w-4 h-4"></i><span>열람 · 다운로드</span></a>`
-        : `<button onclick="downloadCertFile(${c.id})" class="mobile-certificate-primary"><i data-lucide="download" class="w-4 h-4"></i><span>다운로드</span></button>`;
+      const fileAction = certificateFileActionMarkup(c, true);
       return `
         <article class="mobile-certificate-card">
           <div class="mobile-certificate-head">
@@ -1202,7 +1295,7 @@ function renderCertificates() {
           <div class="mobile-certificate-meta"><span>검사일 ${c.inspectionDate || '-'}</span><span>파일 ${c.fileName ? '등록됨' : '미등록'}</span></div>
           <div class="mobile-certificate-actions">
             ${fileAction}
-            <button onclick="deleteCert(${c.id})" class="mobile-certificate-delete" aria-label="성적서 삭제"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            <button type="button" onclick="deleteCert(${Number(c.id)})" class="mobile-certificate-delete" aria-label="성적서 삭제"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
           </div>
         </article>`;
     }).join('');
@@ -1231,6 +1324,12 @@ function closeModal(id) {
 }
 
 function openAddProductModal() {
+  if (!appState.types.length) {
+    showToast('제품을 등록하려면 먼저 식품유형을 1개 이상 등록하세요.', 'error');
+    switchTab('types');
+    return;
+  }
+
   document.getElementById('modal-product-title').textContent = '새 제품 등록';
   document.getElementById('prod-id').value = '';
   document.getElementById('prod-name').value = '';
@@ -1238,10 +1337,8 @@ function openAddProductModal() {
   document.getElementById('prod-memo').value = '';
 
   const typeSelect = document.getElementById('prod-type-id');
-  typeSelect.innerHTML = appState.types.map(t => `<option value="${t.id}">${t.name} (${t.intervalMonths}개월)</option>`).join('');
-  if (appState.types.length > 0) {
-    document.getElementById('prod-interval').value = appState.types[0].intervalMonths;
-  }
+  typeSelect.innerHTML = appState.types.map(t => `<option value="${t.id}">${escapeHtml(t.name)} (${t.intervalMonths}개월)</option>`).join('');
+  document.getElementById('prod-interval').value = appState.types[0].intervalMonths;
   openModal('modal-product');
 }
 
@@ -1269,78 +1366,149 @@ function openEditProductModal(id) {
   openModal('modal-product');
 }
 
+function getProductSaveErrorMessage(error) {
+  const message = String(error?.message || error?.details || error || '알 수 없는 오류');
+  const normalized = message.toLowerCase();
+  if (normalized.includes('row-level security') || normalized.includes('permission denied')) {
+    return '클라우드 쓰기 권한이 없습니다. 관리자에게 제품 등록 권한 설정을 요청하세요.';
+  }
+  if (normalized.includes('foreign key') || normalized.includes('type_id')) {
+    return '선택한 식품유형 정보를 찾을 수 없습니다. 식품유형을 새로고침한 뒤 다시 시도하세요.';
+  }
+  if (normalized.includes('duplicate key') || normalized.includes('unique')) {
+    return '같은 식별값의 제품이 이미 등록되어 있습니다.';
+  }
+  return `클라우드에 저장하지 못했습니다. ${message}`;
+}
+
+function setProductSaveInProgress(form, saving) {
+  const saveButton = form?.querySelector('button[type="submit"]');
+  if (!saveButton) return;
+  saveButton.disabled = saving;
+  saveButton.classList.toggle('opacity-60', saving);
+  saveButton.classList.toggle('cursor-not-allowed', saving);
+  saveButton.textContent = saving ? '저장 중...' : '저장';
+}
+
+function toAppProduct(cloudProduct) {
+  return {
+    id: cloudProduct.id,
+    typeId: cloudProduct.type_id,
+    name: cloudProduct.name,
+    intervalMonths: cloudProduct.interval_months,
+    lastManufactureDate: cloudProduct.last_manufacture_date,
+    memo: cloudProduct.memo || '',
+    productionStatus: cloudProduct.production_status || 'active',
+    stopReason: cloudProduct.stop_reason || '',
+    alertStatus: cloudProduct.alert_status || 'active'
+  };
+}
+
 async function handleSaveProduct(e) {
   e.preventDefault();
+  if (isSavingProduct) return;
+
+  const form = e.currentTarget;
   const id = document.getElementById('prod-id').value;
   const name = document.getElementById('prod-name').value.trim();
   const typeId = Number(document.getElementById('prod-type-id').value);
   const intervalMonths = Number(document.getElementById('prod-interval').value);
   const lastManufactureDate = document.getElementById('prod-last-date').value;
   const memo = document.getElementById('prod-memo').value.trim();
+  const selectedType = appState.types.find(type => Number(type.id) === typeId);
 
   if (!name || !lastManufactureDate) {
     showToast('제품명과 최근 제조일을 입력하세요.', 'error');
     return;
   }
+  if (!selectedType) {
+    showToast('등록된 식품유형을 선택하세요.', 'error');
+    return;
+  }
+  if (!Number.isInteger(intervalMonths) || intervalMonths < 1 || intervalMonths > 24) {
+    showToast('검사 주기는 1~24개월 사이의 정수로 입력하세요.', 'error');
+    return;
+  }
 
-  if (supabaseClient && isCloudConnected) {
-    try {
+  isSavingProduct = true;
+  setProductSaveInProgress(form, true);
+  try {
+    let savedProduct;
+    let historySaveFailed = false;
+
+    if (supabaseClient && isCloudConnected) {
+      const productPayload = {
+        name,
+        type_id: typeId,
+        interval_months: intervalMonths,
+        last_manufacture_date: lastManufactureDate,
+        memo
+      };
+
       if (id) {
-        await supabaseClient.from('quality_products').update({
-          name,
-          type_id: typeId,
-          interval_months: intervalMonths,
-          last_manufacture_date: lastManufactureDate,
-          memo
-        }).eq('id', Number(id));
-        showToast('클라우드에 제품 정보가 수정되었습니다.', 'success');
+        const { data, error } = await supabaseClient
+          .from('quality_products')
+          .update(productPayload)
+          .eq('id', Number(id))
+          .select()
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) throw new Error('수정할 제품을 찾을 수 없거나 저장 결과를 확인할 수 없습니다.');
+        savedProduct = data;
       } else {
-        const { data: newProd } = await supabaseClient.from('quality_products').insert([{
-          name,
-          type_id: typeId,
-          interval_months: intervalMonths,
-          last_manufacture_date: lastManufactureDate,
-          memo,
-          production_status: 'active',
-          alert_status: 'active'
-        }]).select();
+        const { data, error } = await supabaseClient
+          .from('quality_products')
+          .insert([{ ...productPayload, production_status: 'active', alert_status: 'active' }])
+          .select()
+          .single();
+        if (error) throw error;
+        if (!data) throw new Error('등록 결과를 확인할 수 없습니다.');
+        savedProduct = data;
 
-        if (newProd && newProd.length > 0) {
-          await supabaseClient.from('quality_history').insert([{
-            product_id: newProd[0].id,
-            product_name: name,
-            manufacture_date: lastManufactureDate,
-            previous_date: null,
-            memo: '초기 제품 등록'
-          }]);
+        const { error: historyError } = await supabaseClient.from('quality_history').insert([{
+          product_id: savedProduct.id,
+          product_name: name,
+          manufacture_date: lastManufactureDate,
+          previous_date: null,
+          memo: '초기 제품 등록'
+        }]);
+        if (historyError) {
+          historySaveFailed = true;
+          console.warn('초기 제품 이력 저장 실패:', historyError);
         }
-        showToast('클라우드에 새 제품이 등록되었습니다.', 'success');
       }
-      await loadCloudState();
-    } catch (err) {
-      console.error(err);
-      showToast('클라우드 저장 실패, 로컬에 저장합니다.', 'error');
+
+      const normalizedProduct = toAppProduct(savedProduct);
+      const existingIndex = appState.products.findIndex(product => Number(product.id) === Number(normalizedProduct.id));
+      if (existingIndex >= 0) appState.products[existingIndex] = normalizedProduct;
+      else appState.products.push(normalizedProduct);
+      saveLocalState();
+      renderCurrentTab();
+      closeModal('modal-product');
+      showToast(historySaveFailed ? '제품은 등록됐지만 초기 검사 이력 저장에 실패했습니다.' : (id ? '제품 정보가 클라우드에 저장되었습니다.' : '새 제품이 클라우드에 등록되었습니다.'), historySaveFailed ? 'error' : 'success');
+      loadCloudState(false);
+      return;
     }
-  } else {
-    // 로컬 폴백
+
     if (id) {
-      const p = appState.products.find(x => x.id === Number(id));
-      if (p) {
-        p.name = name;
-        p.typeId = typeId;
-        p.intervalMonths = intervalMonths;
-        p.lastManufactureDate = lastManufactureDate;
-        p.memo = memo;
-      }
+      const product = appState.products.find(item => Number(item.id) === Number(id));
+      if (!product) throw new Error('수정할 제품을 찾을 수 없습니다.');
+      Object.assign(product, { name, typeId, intervalMonths, lastManufactureDate, memo });
     } else {
-      const newId = appState.products.length ? Math.max(...appState.products.map(p => p.id)) + 1 : 1;
+      const newId = appState.products.length ? Math.max(...appState.products.map(product => Number(product.id))) + 1 : 1;
       appState.products.push({ id: newId, name, typeId, intervalMonths, lastManufactureDate, memo, productionStatus: 'active', alertStatus: 'active' });
     }
     saveLocalState();
     renderCurrentTab();
+    closeModal('modal-product');
+    showToast(id ? '제품 정보가 이 브라우저에 저장되었습니다.' : '새 제품이 이 브라우저에 저장되었습니다.', 'success');
+  } catch (error) {
+    console.error('제품 저장 실패:', error);
+    showToast(supabaseClient && isCloudConnected ? getProductSaveErrorMessage(error) : `제품을 저장하지 못했습니다. ${String(error?.message || error)}`, 'error');
+  } finally {
+    isSavingProduct = false;
+    setProductSaveInProgress(form, false);
   }
-
-  closeModal('modal-product');
 }
 
 async function deleteProduct(id) {
@@ -1949,8 +2117,115 @@ function openUploadCertModal() {
   openModal('modal-upload-cert');
 }
 
+function mapCertificateRow(certificate) {
+  return {
+    id: certificate.id,
+    certNumber: certificate.cert_number || '',
+    productId: certificate.product_id,
+    inspectionDate: certificate.inspection_date,
+    fileUrl: certificate.file_url || '',
+    fileName: certificate.file_name || '',
+    fileSize: certificate.file_size || 0,
+    memo: certificate.memo || '',
+    createdAt: certificate.created_at || new Date().toISOString()
+  };
+}
+
+function setCertificateSaveInProgress(form, saving, savingLabel = '저장 중...') {
+  const saveButton = form?.querySelector('button[type="submit"]');
+  if (!saveButton) return;
+  if (!saveButton.dataset.defaultLabel) saveButton.dataset.defaultLabel = saveButton.textContent.trim();
+  saveButton.disabled = saving;
+  saveButton.classList.toggle('opacity-60', saving);
+  saveButton.classList.toggle('cursor-not-allowed', saving);
+  saveButton.textContent = saving ? savingLabel : saveButton.dataset.defaultLabel;
+}
+
+function getCertificateSaveErrorMessage(error) {
+  const message = String(error?.message || error?.details || error || '알 수 없는 오류');
+  const normalized = message.toLowerCase();
+  if (normalized.includes('bucket') || normalized.includes('storage')) {
+    return '성적서 파일 저장소에 업로드하지 못했습니다. 잠시 후 다시 시도하세요.';
+  }
+  if (normalized.includes('row-level security') || normalized.includes('permission denied')) {
+    return '성적서 등록 권한이 없습니다. 관리자에게 클라우드 쓰기 권한 설정을 요청하세요.';
+  }
+  return `성적서를 저장하지 못했습니다. ${message}`;
+}
+
+function syncSavedCertificate(savedCertificate) {
+  const normalized = mapCertificateRow(savedCertificate);
+  const existingIndex = appState.certificates.findIndex(certificate => Number(certificate.id) === Number(normalized.id));
+  if (existingIndex >= 0) appState.certificates.splice(existingIndex, 1, normalized);
+  else appState.certificates.unshift(normalized);
+  appState.certificates.sort((a, b) => Number(b.id) - Number(a.id));
+  saveLocalState();
+  renderCurrentTab();
+}
+
+function openReplaceCertFileModal(certificateId) {
+  const certificate = getCertificateById(certificateId);
+  if (!certificate) {
+    showToast('성적서 정보를 찾을 수 없습니다.', 'error');
+    return;
+  }
+  document.getElementById('replace-cert-id').value = certificate.id;
+  document.getElementById('replace-cert-number').textContent = certificate.certNumber || '성적서 번호 미입력';
+  document.getElementById('replace-cert-filename').textContent = certificate.fileName || '기존 파일명 없음';
+  document.getElementById('replace-cert-file').value = '';
+  openModal('modal-replace-cert-file');
+}
+
+async function handleReplaceCertFile(e) {
+  e.preventDefault();
+  if (isSavingCertificate) return;
+
+  const form = e.currentTarget;
+  const certificateId = Number(document.getElementById('replace-cert-id').value);
+  const fileInput = document.getElementById('replace-cert-file');
+  if (!certificateId || !fileInput.files.length) {
+    showToast('다시 첨부할 성적서 파일을 선택하세요.', 'error');
+    return;
+  }
+  if (!supabaseClient || !isCloudConnected) {
+    showToast('성적서 파일은 클라우드 연결 후에 보관할 수 있습니다.', 'error');
+    return;
+  }
+
+  isSavingCertificate = true;
+  setCertificateSaveInProgress(form, true, '파일 저장 중...');
+  try {
+    const file = fileInput.files[0];
+    const uploadRes = await uploadFileToCloud(file, 'certs');
+    if (!uploadRes.url) throw new Error('파일 업로드 결과 주소를 받지 못했습니다.');
+
+    const { data, error } = await supabaseClient
+      .from('quality_certificates')
+      .update({ file_url: uploadRes.url, file_name: file.name, file_size: file.size })
+      .eq('id', certificateId)
+      .select()
+      .single();
+    if (error) throw error;
+    if (!data) throw new Error('파일 보완 결과를 확인하지 못했습니다.');
+
+    syncSavedCertificate(data);
+    closeModal('modal-replace-cert-file');
+    showToast('성적서 파일이 보관되었습니다. 이제 열람과 다운로드가 가능합니다.', 'success');
+    void loadCloudState();
+  } catch (error) {
+    console.error('성적서 파일 보완 실패:', error);
+    showToast(getCertificateSaveErrorMessage(error), 'error');
+  } finally {
+    isSavingCertificate = false;
+    setCertificateSaveInProgress(form, false);
+  }
+}
+
 async function handleSaveCert(e) {
   e.preventDefault();
+  if (isSavingCertificate) return;
+
+  const form = e.currentTarget;
   const certNumber = document.getElementById('cert-number').value.trim();
   const productId = document.getElementById('cert-product-id').value;
   const inspectionDate = document.getElementById('cert-date').value;
@@ -1961,14 +2236,21 @@ async function handleSaveCert(e) {
     showToast('검사 일자와 성적서 파일을 첨부하세요.', 'error');
     return;
   }
+  if (!supabaseClient || !isCloudConnected) {
+    showToast('성적서 파일은 클라우드 연결 후에 보관할 수 있습니다.', 'error');
+    return;
+  }
 
-  showToast('성적서 파일을 클라우드에 업로드하는 중...', 'info');
-  const file = fileInput.files[0];
-  const uploadRes = await uploadFileToCloud(file, 'certs');
+  isSavingCertificate = true;
+  setCertificateSaveInProgress(form, true, '성적서 저장 중...');
+  try {
+    const file = fileInput.files[0];
+    const uploadRes = await uploadFileToCloud(file, 'certs');
+    if (!uploadRes.url) throw new Error('파일 업로드 결과 주소를 받지 못했습니다.');
 
-  if (supabaseClient && isCloudConnected) {
-    try {
-      await supabaseClient.from('quality_certificates').insert([{
+    const { data, error } = await supabaseClient
+      .from('quality_certificates')
+      .insert([{
         cert_number: certNumber,
         product_id: productId ? Number(productId) : null,
         inspection_date: inspectionDate,
@@ -1976,31 +2258,24 @@ async function handleSaveCert(e) {
         file_name: file.name,
         file_size: file.size,
         memo
-      }]);
-      appState.settings.certSequence = (appState.settings.certSequence || 1) + 1;
-      showToast('성적서가 전 팀원 클라우드에 공유되었습니다! 🎉', 'success');
-      await loadCloudState();
-    } catch (err) {
-      console.error(err);
-    }
-  } else {
-    const newId = appState.certificates.length ? Math.max(...appState.certificates.map(c => c.id)) + 1 : 1;
-    appState.certificates.push({
-      id: newId,
-      certNumber,
-      productId: productId ? Number(productId) : null,
-      inspectionDate,
-      fileName: file.name,
-      fileSize: file.size,
-      memo,
-      createdAt: new Date().toISOString()
-    });
-    appState.settings.certSequence = (appState.settings.certSequence || 1) + 1;
-    saveLocalState();
-    renderCurrentTab();
-  }
+      }])
+      .select()
+      .single();
+    if (error) throw error;
+    if (!data) throw new Error('성적서 등록 결과를 확인하지 못했습니다.');
 
-  closeModal('modal-upload-cert');
+    appState.settings.certSequence = (appState.settings.certSequence || 1) + 1;
+    syncSavedCertificate(data);
+    closeModal('modal-upload-cert');
+    showToast('성적서가 파일과 함께 클라우드에 등록되었습니다.', 'success');
+    void loadCloudState();
+  } catch (error) {
+    console.error('성적서 등록 실패:', error);
+    showToast(getCertificateSaveErrorMessage(error), 'error');
+  } finally {
+    isSavingCertificate = false;
+    setCertificateSaveInProgress(form, false);
+  }
 }
 
 async function deleteCert(id) {

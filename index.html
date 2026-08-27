@@ -432,7 +432,7 @@
                 <th class="py-3 px-4">검사일자</th>
                 <th class="py-3 px-4">파일명 / 크기</th>
                 <th class="py-3 px-4">등록일시</th>
-                <th class="py-3 px-4 text-right action-column">다운로드 / 관리</th>
+                <th class="py-3 px-4 text-right action-column">열람 / 다운로드 / 관리</th>
               </tr>
             </thead>
             <tbody id="certs-table-body" class="divide-y divide-slate-200 dark:divide-slate-800">
@@ -821,7 +821,55 @@
     </div>
   </div>
 
-  <!-- 6. History Modal -->
+  <!-- 6. Replace Certificate File Modal -->
+  <div id="modal-replace-cert-file" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="replace-cert-title">
+    <div class="modal-content w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+      <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
+        <div>
+          <h3 id="replace-cert-title" class="text-base font-bold text-slate-900 dark:text-white">성적서 파일 보완</h3>
+          <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">파일명만 남은 성적서에 원본 파일을 다시 첨부합니다.</p>
+        </div>
+        <button type="button" onclick="closeModal('modal-replace-cert-file')" class="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200" aria-label="파일 보완 창 닫기"><i data-lucide="x" class="h-5 w-5"></i></button>
+      </div>
+      <form id="form-replace-cert-file" onsubmit="handleReplaceCertFile(event)" class="mt-4 space-y-4 text-xs">
+        <input type="hidden" id="replace-cert-id">
+        <div class="rounded-lg bg-slate-50 p-3 dark:bg-slate-800">
+          <p id="replace-cert-number" class="font-mono font-bold text-blue-700 dark:text-blue-300"></p>
+          <p id="replace-cert-filename" class="mt-1 truncate text-slate-600 dark:text-slate-300"></p>
+        </div>
+        <div>
+          <label for="replace-cert-file" class="mb-1 block font-semibold text-slate-700 dark:text-slate-300">원본 성적서 파일 (PDF / 이미지) *</label>
+          <input type="file" id="replace-cert-file" required accept=".pdf,image/*" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-replace-cert-file')" class="rounded-lg px-4 py-2 font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">취소</button>
+          <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white shadow-sm hover:bg-blue-700">파일 저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 7. Certificate Preview Modal -->
+  <div id="modal-cert-preview" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="cert-preview-title">
+    <div class="modal-content flex max-h-[92vh] w-full max-w-5xl flex-col bg-white p-4 shadow-2xl dark:bg-slate-900 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800">
+      <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
+        <div class="min-w-0">
+          <h3 id="cert-preview-title" class="truncate text-base font-bold text-slate-900 dark:text-white">검사 성적서 열람</h3>
+          <p id="cert-preview-meta" class="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400"></p>
+        </div>
+        <button type="button" onclick="closeModal('modal-cert-preview')" class="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200" aria-label="성적서 열람 창 닫기">
+          <i data-lucide="x" class="h-5 w-5"></i>
+        </button>
+      </div>
+      <div id="cert-preview-content" class="min-h-0 flex-1 py-4"></div>
+      <div class="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+        <a id="cert-preview-new-tab" href="#" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700"><i data-lucide="external-link" class="h-4 w-4"></i><span>새 탭에서 열기</span></a>
+        <button type="button" onclick="closeModal('modal-cert-preview')" class="rounded-lg bg-slate-100 px-3.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. History Modal -->
   <div id="modal-history" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden">
     <div class="modal-content bg-white dark:bg-slate-900 rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[85vh] flex flex-col">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -841,7 +889,7 @@
     </div>
   </div>
 
-  <!-- 7. Production Stop / Resume Modal -->
+  <!-- 9. Production Stop / Resume Modal -->
   <div id="modal-stop" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden">
     <div class="modal-content bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
