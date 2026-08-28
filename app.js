@@ -2693,24 +2693,45 @@ function openEditHealthCertModal(id) {
 }
 
 async function uploadFileToCloud(file, folder = 'health') {
-  if (!supabaseClient) return { url: '', name: file.name };
+  if (!supabaseClient) throw new Error('클라우드 파일 저장소가 초기화되지 않았습니다.');
+  if (!file || !file.name || !Number.isFinite(file.size) || file.size <= 0) {
+    throw new Error('선택한 파일이 비어 있거나 브라우저에서 읽을 수 없습니다. 파일을 다시 선택해 주세요.');
+  }
+
+  const safeFolder = String(folder || 'files').replace(/[^a-z0-9_-]/gi, '') || 'files';
+  const rawExtension = String(file.name).split('.').pop() || 'bin';
+  const safeExtension = rawExtension.replace(/[^a-z0-9]/gi, '').toLowerCase() || 'bin';
+  const randomId = globalThis.crypto?.randomUUID
+    ? globalThis.crypto.randomUUID().replaceAll('-', '')
+    : Math.random().toString(36).slice(2);
+  const storageName = `${safeFolder}_${Date.now()}_${randomId}.${safeExtension}`;
+  const filePath = `${safeFolder}/${storageName}`;
+
   try {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${folder}_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-    const filePath = `${folder}/${fileName}`;
+    const uploadResult = await retryCloudMutation(() => supabaseClient.storage
+      .from('quality-files')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        contentType: file.type || undefined,
+        // 같은 경로로 재시도해 첫 요청의 응답만 유실된 경우에도 안전하게 완료합니다.
+        upsert: true
+      }));
+    if (!uploadResult?.data?.path) {
+      throw new Error('파일 업로드 완료 경로를 받지 못했습니다.');
+    }
 
-    const { error: uploadError } = await supabaseClient.storage.from('quality-files').upload(filePath, file, {
-      cacheControl: '3600',
-      upsert: true
-    });
+    const publicUrlResult = supabaseClient.storage.from('quality-files').getPublicUrl(filePath);
+    const publicUrl = String(publicUrlResult?.data?.publicUrl || '').trim();
+    if (!publicUrl) throw new Error('파일 업로드 결과 주소를 받지 못했습니다.');
 
-    if (uploadError) throw uploadError;
-
-    const { data: { publicUrl } } = supabaseClient.storage.from('quality-files').getPublicUrl(filePath);
-    return { url: publicUrl, name: file.name };
-  } catch (err) {
-    console.error('파일 클라우드 업로드 실패:', err);
-    return { url: '', name: file.name };
+    return { url: publicUrl, name: file.name, path: filePath };
+  } catch (error) {
+    if (error && typeof error === 'object') {
+      error.uploadFileName = file.name;
+      error.uploadFileSize = file.size;
+    }
+    console.error('파일 클라우드 업로드 실패:', error);
+    throw error;
   }
 }
 
@@ -2911,8 +2932,21 @@ function setCertificateSaveInProgress(form, saving, savingLabel = '저장 중...
 }
 
 function isTransientCloudError(error) {
-  const message = String(error?.message || error?.details || error || '').toLowerCase();
-  return error instanceof TypeError || message.includes('failed to fetch') || message.includes('networkerror') || message.includes('network request failed') || message.includes('timeout');
+  const message = [error?.message, error?.details, error?.error, error?.statusCode, error?.status, error]
+    .filter(value => value !== undefined && value !== null)
+    .join(' ')
+    .toLowerCase();
+  return error instanceof TypeError
+    || message.includes('failed to fetch')
+    || message.includes('networkerror')
+    || message.includes('network request failed')
+    || message.includes('timeout')
+    || message.includes('timed out')
+    || message.includes('too many requests')
+    || message.includes('bad gateway')
+    || message.includes('service unavailable')
+    || message.includes('gateway timeout')
+    || /\b(429|502|503|504)\b/.test(message);
 }
 
 async function retryCloudMutation(operation, maxAttempts = 3) {
@@ -2931,17 +2965,39 @@ async function retryCloudMutation(operation, maxAttempts = 3) {
   throw lastError || new Error('클라우드 저장 결과를 확인하지 못했습니다.');
 }
 
+function formatFileSize(bytes) {
+  const size = Number(bytes) || 0;
+  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)}MB`;
+  if (size >= 1024) return `${Math.round(size / 1024)}KB`;
+  return `${size}B`;
+}
+
 function getCertificateSaveErrorMessage(error) {
-  const message = String(error?.message || error?.details || error || '알 수 없는 오류');
-  const normalized = message.toLowerCase();
+  const message = [error?.message, error?.details, error?.error]
+    .filter(Boolean)
+    .map(value => String(value))
+    .filter((value, index, values) => values.indexOf(value) === index)
+    .join(' · ') || String(error || '알 수 없는 오류');
+  const statusCode = Number(error?.statusCode || error?.status || 0);
+  const normalized = `${message} ${statusCode}`.toLowerCase();
   if (isTransientCloudError(error)) {
-    return '클라우드 저장 연결이 일시적으로 실패했습니다. 입력값은 유지됩니다. 인터넷 연결을 확인한 뒤 다시 저장하세요.';
+    return '파일 전송을 3회 시도했지만 클라우드 연결이 끊겼습니다. 입력값은 유지됩니다. 인터넷 연결을 확인한 뒤 다시 저장하세요.';
   }
-  if (normalized.includes('bucket') || normalized.includes('storage')) {
-    return '성적서 파일 저장소에 업로드하지 못했습니다. 잠시 후 다시 시도하세요.';
+  if (statusCode === 413 || normalized.includes('payload too large') || normalized.includes('maximum allowed size') || normalized.includes('file size limit')) {
+    const sizeText = Number(error?.uploadFileSize) > 0 ? ` (선택 파일 ${formatFileSize(error.uploadFileSize)})` : '';
+    return `파일 용량이 클라우드 저장 한도를 초과했습니다${sizeText}. PDF 용량을 줄인 뒤 다시 첨부하세요.`;
   }
   if (normalized.includes('row-level security') || normalized.includes('permission denied')) {
     return '성적서 등록 권한이 없습니다. 관리자에게 클라우드 쓰기 권한 설정을 요청하세요.';
+  }
+  if (normalized.includes('mime type') || normalized.includes('content type') || normalized.includes('invalid file type')) {
+    return '허용되지 않은 파일 형식입니다. PDF 또는 이미지 파일로 다시 첨부하세요.';
+  }
+  if (normalized.includes('bucket not found') || normalized.includes('nosuchbucket')) {
+    return '성적서 파일 저장소 설정을 찾지 못했습니다. 관리자에게 quality-files 버킷 설정 확인을 요청하세요.';
+  }
+  if (normalized.includes('jwt') || statusCode === 401 || statusCode === 403) {
+    return '클라우드 인증 또는 파일 업로드 권한이 만료되었습니다. 페이지를 새로고침한 뒤 다시 시도하세요.';
   }
   return `성적서를 저장하지 못했습니다. ${message}`;
 }
