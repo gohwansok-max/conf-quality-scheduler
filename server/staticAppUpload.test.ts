@@ -13,7 +13,7 @@ type StorageClient = {
   };
 };
 
-function loadStaticApp(storageClient: StorageClient) {
+function loadStaticApp(storageClient: StorageClient, XMLHttpRequestClass?: unknown) {
   const context: Record<string, any> = {
     URL,
     console: { error() {}, info() {}, log() {}, warn() {} },
@@ -30,6 +30,7 @@ function loadStaticApp(storageClient: StorageClient) {
       supabase: { createClient: () => storageClient },
     },
   };
+  if (XMLHttpRequestClass) context.XMLHttpRequest = XMLHttpRequestClass;
   vm.runInNewContext(appSource, context, { filename: "app.js" });
   return context;
 }
@@ -62,6 +63,61 @@ describe("GitHub Pages 파일 업로드", () => {
     expect(new Set(paths).size).toBe(1);
     expect(paths[0]).toMatch(/^certs\/certs_\d+_11111111222243338444555555555555\.pdf$/);
     expect(result).toMatchObject({ name: "자가품질검사.pdf", path: paths[0], url: `https://storage.test/${paths[0]}` });
+  });
+
+  it("SDK 전송이 모두 끊기면 Storage 전용 호스트로 보조 업로드한다", async () => {
+    class DirectStorageRequest {
+      static instances: DirectStorageRequest[] = [];
+      headers: Record<string, string> = {};
+      method = "";
+      url = "";
+      status = 0;
+      responseText = "";
+      timeout = 0;
+      onload?: () => void;
+      onerror?: () => void;
+      ontimeout?: () => void;
+
+      constructor() {
+        DirectStorageRequest.instances.push(this);
+      }
+
+      open(method: string, url: string) {
+        this.method = method;
+        this.url = url;
+      }
+
+      setRequestHeader(name: string, value: string) {
+        this.headers[name] = value;
+      }
+
+      send() {
+        this.status = 200;
+        this.responseText = '{"Key":"quality-files/certs/test.pdf"}';
+        this.onload?.();
+      }
+    }
+
+    const app = loadStaticApp({
+      storage: {
+        from: () => ({
+          upload: async () => ({ data: null, error: { message: "Failed to fetch" } }),
+          getPublicUrl: (path) => ({ data: { publicUrl: `https://storage.test/${path}` } }),
+        }),
+      },
+    }, DirectStorageRequest);
+
+    const result = await app.uploadFileToCloud({ name: "report.pdf", size: 2000, type: "application/pdf" }, "certs");
+
+    expect(DirectStorageRequest.instances).toHaveLength(1);
+    const request = DirectStorageRequest.instances[0]!;
+    expect(request).toMatchObject({
+      method: "POST",
+      url: expect.stringMatching(/^https:\/\/hooaeqywrdihninxnvtb\.storage\.supabase\.co\/storage\/v1\/object\/quality-files\/certs\//),
+      timeout: 30000,
+    });
+    expect(request.headers).toMatchObject({ apikey: expect.any(String), "x-upsert": "true", "Content-Type": "application/pdf" });
+    expect(result.url).toMatch(/^https:\/\/storage\.test\/certs\//);
   });
 
   it("Supabase 오류를 숨기지 않고 파일 정보와 함께 전달한다", async () => {
