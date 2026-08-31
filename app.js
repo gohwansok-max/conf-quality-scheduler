@@ -5,6 +5,111 @@
 // ==================== 1. Runtime & Supabase Client Setup ====================
 const CONF_RUNTIME_CONFIG = window.CONF_RUNTIME_CONFIG || {};
 const SERVER_API_BASE_URL = String(CONF_RUNTIME_CONFIG.serverApiBaseUrl || '').trim().replace(/\/$/, '');
+const LOCAL_FILE_DB_NAME = 'KoenfQualityFileCache';
+const LOCAL_FILE_DB_VERSION = 1;
+const LOCAL_FILE_STORE = 'files';
+const LOCAL_CERTIFICATE_FILE_MAP_KEY = 'koenf_local_certificate_file_map_v1';
+
+function openLocalFileDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(LOCAL_FILE_DB_NAME, LOCAL_FILE_DB_VERSION);
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains(LOCAL_FILE_STORE)) database.createObjectStore(LOCAL_FILE_STORE, { keyPath: 'key' });
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('브라우저 파일 저장소를 열지 못했습니다.'));
+  });
+}
+
+async function saveFileToLocalCache(key, file) {
+  const database = await openLocalFileDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(LOCAL_FILE_STORE, 'readwrite');
+    const request = transaction.objectStore(LOCAL_FILE_STORE).put({ key, file, name: file.name, type: file.type, size: file.size, savedAt: new Date().toISOString() });
+    request.onsuccess = () => resolve(true);
+    request.onerror = () => reject(request.error || new Error('파일을 이 브라우저에 보관하지 못했습니다.'));
+  });
+}
+
+async function getFileFromLocalCache(key) {
+  const database = await openLocalFileDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(LOCAL_FILE_STORE, 'readonly');
+    const request = transaction.objectStore(LOCAL_FILE_STORE).get(key);
+    request.onsuccess = () => resolve(request.result?.file || null);
+    request.onerror = () => reject(request.error || new Error('브라우저 보관 파일을 읽지 못했습니다.'));
+  });
+}
+
+async function deleteFileFromLocalCache(key) {
+  const database = await openLocalFileDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(LOCAL_FILE_STORE, 'readwrite');
+    const request = transaction.objectStore(LOCAL_FILE_STORE).delete(key);
+    request.onsuccess = () => resolve(true);
+    request.onerror = () => reject(request.error || new Error('브라우저 보관 파일을 삭제하지 못했습니다.'));
+  });
+}
+
+function getLocalCertificateFileMap() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LOCAL_CERTIFICATE_FILE_MAP_KEY) || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function setLocalCertificateFileMap(map) {
+  localStorage.setItem(LOCAL_CERTIFICATE_FILE_MAP_KEY, JSON.stringify(map));
+}
+
+function hasLocalCertificateFile(certificateId) {
+  return Boolean(getLocalCertificateFileMap()[String(certificateId)]);
+}
+
+function registerLocalCertificateFile(certificateId, fileKey) {
+  const map = getLocalCertificateFileMap();
+  map[String(certificateId)] = fileKey;
+  setLocalCertificateFileMap(map);
+}
+
+async function clearLocalCertificateFile(certificateId) {
+  const map = getLocalCertificateFileMap();
+  const fileKey = map[String(certificateId)];
+  if (!fileKey) return;
+  delete map[String(certificateId)];
+  setLocalCertificateFileMap(map);
+  try {
+    await deleteFileFromLocalCache(fileKey);
+  } catch (error) {
+    console.warn('로컬 성적서 파일 정리 실패:', error);
+  }
+}
+
+async function downloadLocalCertificateFile(certificateId) {
+  const fileKey = getLocalCertificateFileMap()[String(certificateId)];
+  if (!fileKey) {
+    showToast('이 브라우저에 보관된 성적서 파일을 찾지 못했습니다.', 'error');
+    return;
+  }
+  try {
+    const file = await getFileFromLocalCache(fileKey);
+    if (!file) throw new Error('파일이 없습니다.');
+    const url = URL.createObjectURL(file);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = file.name || '성적서.pdf';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (error) {
+    console.error('로컬 성적서 다운로드 실패:', error);
+    showToast('이 브라우저에 보관된 성적서 파일을 열지 못했습니다.', 'error');
+  }
+}
 
 function getServerApiUrl(path) {
   if (!SERVER_API_BASE_URL) return '';
@@ -65,6 +170,10 @@ function getCertificateById(certificateId) {
 function openCertificateViewer(certificateId) {
   const certificate = getCertificateById(certificateId);
   const fileUrl = getCertificateFileUrl(certificate);
+  if (certificate && !fileUrl && hasLocalCertificateFile(certificateId)) {
+    void downloadLocalCertificateFile(certificateId);
+    return;
+  }
   if (!certificate || !fileUrl) {
     showToast('첨부 파일이 보관되지 않은 기존 성적서입니다. 파일 보완을 눌러 다시 첨부하세요.', 'error');
     return;
@@ -95,6 +204,10 @@ function openCertificateViewer(certificateId) {
 function downloadCertFile(certificateId) {
   const certificate = getCertificateById(certificateId);
   const downloadUrl = getCertificateDownloadUrl(certificate);
+  if (certificate && !downloadUrl && hasLocalCertificateFile(certificateId)) {
+    void downloadLocalCertificateFile(certificateId);
+    return;
+  }
   if (!certificate || !downloadUrl) {
     showToast('첨부 파일이 보관되지 않은 기존 성적서입니다. 파일 보완을 눌러 다시 첨부하세요.', 'error');
     return;
@@ -117,6 +230,9 @@ function certificateFileActionMarkup(certificate, mobile = false) {
     ? 'mobile-certificate-primary bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
     : 'inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200';
   const id = Number(certificate.id);
+  if (hasLocalCertificateFile(id)) {
+    return `<button type="button" onclick="downloadLocalCertificateFile(${id})" class="${buttonClass}" title="이 브라우저에만 보관된 성적서 파일"><i data-lucide="download" class="w-3.5 h-3.5"></i><span>이 브라우저 파일</span></button>`;
+  }
   if (!getCertificateFileUrl(certificate)) {
     return `<button type="button" onclick="openReplaceCertFileModal(${id})" class="${compactClass}" title="파일 보완"><i data-lucide="paperclip" class="w-3.5 h-3.5"></i><span>파일 보완</span></button>`;
   }
@@ -2743,6 +2859,22 @@ async function uploadFileToCloud(file, folder = 'health') {
   }
 }
 
+async function stageCertificateFileWithFallback(file) {
+  try {
+    const uploadResult = await uploadFileToCloud(file, 'certs');
+    return { url: uploadResult.url, localFileKey: '' };
+  } catch (error) {
+    if (!isTransientCloudError(error)) throw error;
+    const randomId = globalThis.crypto?.randomUUID
+      ? globalThis.crypto.randomUUID()
+      : Math.random().toString(36).slice(2);
+    const localFileKey = `certificate:${Date.now()}:${randomId}`;
+    await saveFileToLocalCache(localFileKey, file);
+    console.warn('클라우드 파일 전송이 차단되어 성적서를 이 브라우저에만 보관합니다.', error);
+    return { url: '', localFileKey };
+  }
+}
+
 function getDirectStorageApiBaseUrl() {
   const projectRef = new URL(SUPABASE_URL).hostname.split('.')[0];
   if (!projectRef) throw new Error('클라우드 저장소 주소를 확인하지 못했습니다.');
@@ -3100,21 +3232,28 @@ async function handleReplaceCertFile(e) {
   setCertificateSaveInProgress(form, true, '파일 저장 중...');
   try {
     const file = fileInput.files[0];
-    const uploadRes = await uploadFileToCloud(file, 'certs');
-    if (!uploadRes.url) throw new Error('파일 업로드 결과 주소를 받지 못했습니다.');
+    const stagedFile = await stageCertificateFileWithFallback(file);
+    const updatePayload = { file_url: stagedFile.url, file_name: file.name, file_size: file.size };
 
     const { data, error } = await supabaseClient
       .from('quality_certificates')
-      .update({ file_url: uploadRes.url, file_name: file.name, file_size: file.size })
+      .update(updatePayload)
       .eq('id', certificateId)
       .select()
       .single();
-    if (error) throw error;
-    if (!data) throw new Error('파일 보완 결과를 확인하지 못했습니다.');
+    if (error || !data) {
+      if (stagedFile.localFileKey) await deleteFileFromLocalCache(stagedFile.localFileKey);
+      if (error) throw error;
+      throw new Error('파일 보완 결과를 확인하지 못했습니다.');
+    }
 
+    if (stagedFile.localFileKey) registerLocalCertificateFile(certificateId, stagedFile.localFileKey);
+    else await clearLocalCertificateFile(certificateId);
     syncSavedCertificate(data);
     closeModal('modal-replace-cert-file');
-    showToast('성적서 파일이 보관되었습니다. 이제 열람과 다운로드가 가능합니다.', 'success');
+    showToast(stagedFile.localFileKey
+      ? '클라우드 전송이 차단되어 파일을 이 브라우저에만 보관했습니다. 성적서 정보는 저장되었습니다.'
+      : '성적서 파일이 보관되었습니다. 이제 열람과 다운로드가 가능합니다.', stagedFile.localFileKey ? 'info' : 'success');
     void loadCloudState();
   } catch (error) {
     console.error('성적서 파일 보완 실패:', error);
@@ -3146,23 +3285,28 @@ async function handleSaveCert(e) {
   setCertificateSaveInProgress(form, true, '성적서 저장 중...');
   try {
     const file = fileInput.files[0];
-    const uploadRes = await uploadFileToCloud(file, 'certs');
-    if (!uploadRes.url) throw new Error('파일 업로드 결과 주소를 받지 못했습니다.');
+    const stagedFile = await stageCertificateFileWithFallback(file);
 
     const { data, error } = await supabaseClient
       .from('quality_certificates')
-      .insert([{ cert_number: certNumber, product_id: productId ? Number(productId) : null, inspection_date: inspectionDate, file_url: uploadRes.url, file_name: file.name, file_size: file.size, memo }])
+      .insert([{ cert_number: certNumber, product_id: productId ? Number(productId) : null, inspection_date: inspectionDate, file_url: stagedFile.url, file_name: file.name, file_size: file.size, memo }])
       .select()
       .single();
-    if (error) throw error;
-    if (!data) throw new Error('성적서 등록 결과를 확인하지 못했습니다.');
+    if (error || !data) {
+      if (stagedFile.localFileKey) await deleteFileFromLocalCache(stagedFile.localFileKey);
+      if (error) throw error;
+      throw new Error('성적서 등록 결과를 확인하지 못했습니다.');
+    }
 
     await updateCertificateMetadata(data.id, { typeId, manufactureDate, source: productId ? '제품 연동' : '직접 입력' });
     appState.settings.certSequence = (appState.settings.certSequence || 1) + 1;
+    if (stagedFile.localFileKey) registerLocalCertificateFile(data.id, stagedFile.localFileKey);
     syncSavedCertificate(data);
     renderCertificates();
     closeModal('modal-upload-cert');
-    showToast('성적서가 유형·제조일 정보와 함께 클라우드에 등록되었습니다.', 'success');
+    showToast(stagedFile.localFileKey
+      ? '성적서 정보는 저장되었고, 원본 파일은 이 브라우저에만 보관되었습니다.'
+      : '성적서가 유형·제조일 정보와 함께 클라우드에 등록되었습니다.', stagedFile.localFileKey ? 'info' : 'success');
     void loadCloudState();
   } catch (error) {
     console.error('성적서 등록 실패:', error);
@@ -3182,10 +3326,12 @@ async function deleteCert(id) {
     const { error } = await supabaseClient.from('quality_certificates').delete().eq('id', id);
     if (error) throw error;
     await removeCertificateMetadata([id]);
+    await clearLocalCertificateFile(id);
     await loadCloudState();
   } else {
     appState.certificates = appState.certificates.filter(x => x.id !== id);
     await removeCertificateMetadata([id]);
+    await clearLocalCertificateFile(id);
     saveLocalState();
     renderCurrentTab();
   }
@@ -4429,7 +4575,7 @@ async function installPwaApp() {
 function registerPwa() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=202608281730', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=202608311130', { scope: './' })
       .then(() => console.info('PWA 서비스 워커가 등록되었습니다.'))
       .catch(error => console.warn('PWA 서비스 워커 등록 실패:', error));
   });
