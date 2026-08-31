@@ -2824,22 +2824,14 @@ async function uploadFileToCloud(file, folder = 'health') {
   const filePath = `${safeFolder}/${storageName}`;
 
   try {
-    let uploadResult;
-    try {
-      uploadResult = await retryCloudMutation(() => supabaseClient.storage
-        .from('quality-files')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          contentType: file.type || undefined,
-          // 같은 경로로 재시도해 첫 요청의 응답만 유실된 경우에도 안전하게 완료합니다.
-          upsert: true
-        }));
-    } catch (sdkError) {
-      if (!isTransientCloudError(sdkError)) throw sdkError;
-      // 일부 브라우저·보안망에서 API 게이트웨이 fetch가 끊길 때 Storage 전용 호스트로 한 번 더 전송합니다.
-      console.warn('기본 파일 업로드 경로 실패, Storage 전용 경로로 재시도:', sdkError);
-      uploadResult = await retryCloudMutation(() => uploadFileThroughDirectStorage(file, filePath));
-    }
+    const uploadResult = await retryCloudMutation(() => supabaseClient.storage
+      .from('quality-files')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        contentType: file.type || undefined,
+        // 같은 경로로 재시도해 첫 요청의 응답만 유실된 경우에도 안전하게 완료합니다.
+        upsert: true
+      }));
     if (!uploadResult?.data?.path) {
       throw new Error('파일 업로드 완료 경로를 받지 못했습니다.');
     }
@@ -2873,53 +2865,6 @@ async function stageCertificateFileWithFallback(file) {
     console.warn('클라우드 파일 전송이 차단되어 성적서를 이 브라우저에만 보관합니다.', error);
     return { url: '', localFileKey };
   }
-}
-
-function getDirectStorageApiBaseUrl() {
-  const projectRef = new URL(SUPABASE_URL).hostname.split('.')[0];
-  if (!projectRef) throw new Error('클라우드 저장소 주소를 확인하지 못했습니다.');
-  return `https://${projectRef}.storage.supabase.co/storage/v1`;
-}
-
-function createDirectStorageUploadError(request) {
-  let response = null;
-  try {
-    response = JSON.parse(request.responseText || '');
-  } catch {
-    response = null;
-  }
-  const error = new Error(response?.message || response?.error || `Storage 전용 업로드 요청이 실패했습니다. (HTTP ${request.status || 0})`);
-  error.status = request.status || 0;
-  error.statusCode = response?.statusCode || request.status || 0;
-  error.details = response?.error || '';
-  return error;
-}
-
-function uploadFileThroughDirectStorage(file, filePath) {
-  return new Promise((resolve, reject) => {
-    if (typeof XMLHttpRequest === 'undefined') {
-      reject(new Error('이 브라우저는 보조 파일 업로드 방식을 지원하지 않습니다.'));
-      return;
-    }
-    const request = new XMLHttpRequest();
-    request.open('POST', `${getDirectStorageApiBaseUrl()}/object/quality-files/${filePath}`);
-    request.setRequestHeader('apikey', SUPABASE_ANON_KEY);
-    request.setRequestHeader('Authorization', `Bearer ${SUPABASE_ANON_KEY}`);
-    request.setRequestHeader('x-upsert', 'true');
-    request.setRequestHeader('cache-control', 'max-age=3600');
-    if (file.type) request.setRequestHeader('Content-Type', file.type);
-    request.timeout = 30000;
-    request.onload = () => {
-      if (request.status >= 200 && request.status < 300) {
-        resolve({ data: { path: filePath }, error: null });
-        return;
-      }
-      reject(createDirectStorageUploadError(request));
-    };
-    request.onerror = () => reject(new TypeError('Storage 전용 서버에 연결하지 못했습니다.'));
-    request.ontimeout = () => reject(new Error('Storage 전용 업로드 요청 시간이 초과되었습니다.'));
-    request.send(file);
-  });
 }
 
 function mapHealthCertificateRow(c) {
