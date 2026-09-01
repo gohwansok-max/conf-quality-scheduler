@@ -745,7 +745,7 @@ async function handleBulkCertificateMaintenance(event) {
         if (!uploadRes.url) throw new Error(`${file.name} 파일의 업로드 주소를 받지 못했습니다.`);
         const { data, error } = await supabaseClient
           .from('quality_certificates')
-          .update({ file_url: uploadRes.url, file_name: file.name, file_size: file.size })
+          .update({ file_url: uploadRes.url, file_name: uploadRes.name, file_size: file.size })
           .eq('id', Number(certificate.id))
           .select()
           .single();
@@ -2953,7 +2953,7 @@ async function uploadFileToCloud(file, folder = 'health') {
 async function stageCertificateFileWithFallback(file) {
   try {
     const uploadResult = await uploadFileToCloud(file, 'certs');
-    return { url: uploadResult.url, localFileKey: '' };
+    return { url: uploadResult.url, name: uploadResult.name, localFileKey: '' };
   } catch (error) {
     if (!isTransientCloudError(error)) throw error;
     const randomId = globalThis.crypto?.randomUUID
@@ -2962,7 +2962,7 @@ async function stageCertificateFileWithFallback(file) {
     const localFileKey = `certificate:${Date.now()}:${randomId}`;
     await saveFileToLocalCache(localFileKey, file);
     console.warn('클라우드 파일 전송이 차단되어 성적서를 이 브라우저에만 보관합니다.', error);
-    return { url: '', localFileKey };
+    return { url: '', name: file.name, localFileKey };
   }
 }
 
@@ -3304,7 +3304,7 @@ async function handleReplaceCertFile(e) {
   try {
     const file = fileInput.files[0];
     const stagedFile = await stageCertificateFileWithFallback(file);
-    const updatePayload = { file_url: stagedFile.url, file_name: file.name, file_size: file.size };
+    const updatePayload = { file_url: stagedFile.url, file_name: stagedFile.name, file_size: file.size };
 
     const { data, error } = await supabaseClient
       .from('quality_certificates')
@@ -3360,7 +3360,7 @@ async function handleSaveCert(e) {
 
     const { data, error } = await supabaseClient
       .from('quality_certificates')
-      .insert([{ cert_number: certNumber, product_id: productId ? Number(productId) : null, inspection_date: inspectionDate, file_url: stagedFile.url, file_name: file.name, file_size: file.size, memo }])
+      .insert([{ cert_number: certNumber, product_id: productId ? Number(productId) : null, inspection_date: inspectionDate, file_url: stagedFile.url, file_name: stagedFile.name, file_size: file.size, memo }])
       .select()
       .single();
     if (error || !data) {
