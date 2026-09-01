@@ -4,6 +4,9 @@
 
 // ==================== 1. Runtime & Supabase Client Setup ====================
 const CONF_RUNTIME_CONFIG = window.CONF_RUNTIME_CONFIG || {};
+if (window.pdfjsLib) {
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+}
 const LOCAL_FILE_DB_NAME = 'KoenfQualityFileCache';
 const LOCAL_FILE_DB_VERSION = 1;
 const LOCAL_FILE_STORE = 'files';
@@ -2850,10 +2853,64 @@ function openEditHealthCertModal(id) {
   openModal('modal-health');
 }
 
+// 일부 사내 네트워크 보안장비가 PDF 파일 업로드를 차단하는 사례가 있어(이미지 업로드는 정상),
+// PDF는 업로드 전 각 페이지를 이미지(PNG)로 변환해 세로로 이어붙여 하나의 PNG로 저장한다.
+// 열람/다운로드 시에는 이미지 형태 그대로 제공되며, 원본 PDF 텍스트 레이어는 유지되지 않는다.
+async function convertPdfFileToPngFile(file) {
+  if (!window.pdfjsLib) throw new Error('PDF 변환 라이브러리를 불러오지 못했습니다.');
+  const buffer = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data: buffer }).promise;
+  const scale = 2;
+  const pageCanvases = [];
+  let totalHeight = 0;
+  let maxWidth = 0;
+
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum += 1) {
+    const page = await pdf.getPage(pageNum);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    const context = canvas.getContext('2d');
+    await page.render({ canvasContext: context, viewport }).promise;
+    pageCanvases.push(canvas);
+    totalHeight += canvas.height;
+    maxWidth = Math.max(maxWidth, canvas.width);
+  }
+
+  const combined = document.createElement('canvas');
+  combined.width = maxWidth;
+  combined.height = totalHeight;
+  const combinedContext = combined.getContext('2d');
+  combinedContext.fillStyle = '#ffffff';
+  combinedContext.fillRect(0, 0, combined.width, combined.height);
+  let offsetY = 0;
+  pageCanvases.forEach(canvas => {
+    combinedContext.drawImage(canvas, 0, offsetY);
+    offsetY += canvas.height;
+  });
+
+  const blob = await new Promise((resolve, reject) => {
+    combined.toBlob(result => (result ? resolve(result) : reject(new Error('PDF를 이미지로 변환하지 못했습니다.'))), 'image/png', 0.92);
+  });
+
+  const baseName = String(file.name || '성적서').replace(/\.pdf$/i, '');
+  return new File([blob], `${baseName}.png`, { type: 'image/png' });
+}
+
 async function uploadFileToCloud(file, folder = 'health') {
   if (!supabaseClient) throw new Error('클라우드 파일 저장소가 초기화되지 않았습니다.');
   if (!file || !file.name || !Number.isFinite(file.size) || file.size <= 0) {
     throw new Error('선택한 파일이 비어 있거나 브라우저에서 읽을 수 없습니다. 파일을 다시 선택해 주세요.');
+  }
+
+  if (file.type === 'application/pdf') {
+    try {
+      file = await convertPdfFileToPngFile(file);
+    } catch (conversionError) {
+      console.error('PDF 이미지 변환 실패:', conversionError);
+      throw new Error('PDF 파일을 이미지로 변환하지 못했습니다. 다른 파일로 다시 시도해 주세요.');
+    }
   }
 
   const safeFolder = String(folder || 'files').replace(/[^a-z0-9_-]/gi, '') || 'files';
@@ -2866,14 +2923,11 @@ async function uploadFileToCloud(file, folder = 'health') {
   const filePath = `${safeFolder}/${storageName}`;
 
   try {
-    // 일부 사내 네트워크 보안장비가 Content-Type: application/pdf 요청을 차단하는 사례가 있어,
-    // PDF는 일반 바이너리 타입으로 전송한다. 실제 파일 형식은 확장자로 식별한다.
-    const uploadContentType = file.type === 'application/pdf' ? 'application/octet-stream' : (file.type || undefined);
     const uploadResult = await retryCloudMutation(() => supabaseClient.storage
       .from('quality-files')
       .upload(filePath, file, {
         cacheControl: '3600',
-        contentType: uploadContentType,
+        contentType: file.type || undefined,
         // 같은 경로로 재시도해 첫 요청의 응답만 유실된 경우에도 안전하게 완료합니다.
         upsert: true
       }));
