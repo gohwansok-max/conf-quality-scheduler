@@ -2866,11 +2866,14 @@ async function uploadFileToCloud(file, folder = 'health') {
   const filePath = `${safeFolder}/${storageName}`;
 
   try {
+    // 일부 사내 네트워크 보안장비가 Content-Type: application/pdf 요청을 차단하는 사례가 있어,
+    // PDF는 일반 바이너리 타입으로 전송한다. 실제 파일 형식은 확장자로 식별한다.
+    const uploadContentType = file.type === 'application/pdf' ? 'application/octet-stream' : (file.type || undefined);
     const uploadResult = await retryCloudMutation(() => supabaseClient.storage
       .from('quality-files')
       .upload(filePath, file, {
         cacheControl: '3600',
-        contentType: file.type || undefined,
+        contentType: uploadContentType,
         // 같은 경로로 재시도해 첫 요청의 응답만 유실된 경우에도 안전하게 완료합니다.
         upsert: true
       }));
