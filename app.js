@@ -1322,6 +1322,41 @@ let dashboardFilteredProducts = [];
 let dashboardQuickFilter = 'all';
 let healthMonthlyStatsScope = 'active';
 let typeMatrixYear = Number(getTodayKstStr().slice(0, 4));
+let showHiddenTypesInDashboard = false;
+const DASHBOARD_HIDDEN_TYPES_KEY = 'dashboard_hidden_type_ids';
+
+function getHiddenTypeIds() {
+  try {
+    const raw = appState.settings?.[DASHBOARD_HIDDEN_TYPES_KEY];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.map(Number).filter(Number.isFinite) : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+async function setDashboardTypeHidden(typeId, hidden) {
+  const current = new Set(getHiddenTypeIds());
+  if (hidden) current.add(Number(typeId)); else current.delete(Number(typeId));
+  const value = JSON.stringify([...current]);
+  appState.settings[DASHBOARD_HIDDEN_TYPES_KEY] = value;
+  saveLocalState();
+  renderDashboard();
+  if (supabaseClient && isCloudConnected) {
+    try {
+      const { error } = await supabaseClient.from('quality_settings').upsert([{ key: DASHBOARD_HIDDEN_TYPES_KEY, value }], { onConflict: 'key' });
+      if (error) throw error;
+    } catch (error) {
+      console.error('식품유형 표시 설정 저장 실패:', error);
+      showToast(getCloudDeleteErrorMessage(error, '표시 설정'), 'error');
+    }
+  }
+}
+
+function toggleShowHiddenDashboardTypes() {
+  showHiddenTypesInDashboard = !showHiddenTypesInDashboard;
+  renderDashboard();
+}
 
 function switchTab(tabId) {
   currentTab = tabId;
@@ -1528,10 +1563,19 @@ function renderTypeMonthlyMatrix() {
   const target = document.getElementById('type-monthly-matrix');
   if (!target) return;
 
-  const summaries = getTypeInspectionSummaries();
+  const allSummaries = getTypeInspectionSummaries();
   const monthLabels = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+  const hiddenTypeIds = getHiddenTypeIds();
+  const summaries = showHiddenTypesInDashboard ? allSummaries : allSummaries.filter(summary => !hiddenTypeIds.includes(Number(summary.type.id)));
+  const hiddenCount = hiddenTypeIds.length;
 
-  if (summaries.length === 0) {
+  const toggleButton = hiddenCount > 0
+    ? `<button type="button" onclick="toggleShowHiddenDashboardTypes()" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+        <i data-lucide="${showHiddenTypesInDashboard ? 'eye-off' : 'eye'}" class="h-3.5 w-3.5"></i><span>${showHiddenTypesInDashboard ? '숨긴 유형 감추기' : `숨긴 유형 보기 (${hiddenCount})`}</span>
+      </button>`
+    : '';
+
+  if (allSummaries.length === 0) {
     target.innerHTML = `
       <div class="app-card p-5">
         <h2 class="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white"><i data-lucide="table-2" class="h-5 w-5 text-blue-500"></i><span>식품유형별 월간 검사 현황</span></h2>
@@ -1540,15 +1584,32 @@ function renderTypeMonthlyMatrix() {
     return;
   }
 
+  if (summaries.length === 0) {
+    target.innerHTML = `
+      <div class="app-card p-5 space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white"><i data-lucide="table-2" class="h-5 w-5 text-blue-500"></i><span>식품유형별 월간 검사 현황</span></h2>
+          ${toggleButton}
+        </div>
+        <p class="text-xs text-slate-500 dark:text-slate-400">표시 중인 유형이 없습니다. 숨긴 유형을 다시 확인하려면 위 버튼을 눌러 주세요.</p>
+      </div>`;
+    lucide.createIcons();
+    return;
+  }
+
   const rows = summaries.map(summary => {
+    const isHidden = hiddenTypeIds.includes(Number(summary.type.id));
     const states = getTypeMatrixMonthStates(summary, typeMatrixYear);
     const cells = states.map((state, index) => {
       if (state === 'done') return `<td class="py-2 px-1 text-center" title="${monthLabels[index]} 검사 완료"><span class="inline-block h-3.5 w-3.5 rounded-full bg-slate-900 dark:bg-white"></span></td>`;
       if (state === 'due') return `<td class="py-2 px-1 text-center" title="${monthLabels[index]} 검사 예정"><span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-slate-400 dark:border-slate-500"></span></td>`;
       return `<td class="py-2 px-1 text-center"><span class="inline-block h-1 w-1 rounded-full bg-slate-200 dark:bg-slate-700"></span></td>`;
     }).join('');
-    return `<tr class="border-t border-slate-100 dark:border-slate-800">
-      <th scope="row" class="py-2 px-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">${escapeHtml(summary.type.name)}<span class="ml-1 text-[10px] font-normal text-slate-400">${summary.intervalMonths || '-'}개월</span></th>
+    const rowAction = isHidden
+      ? `<button type="button" onclick="setDashboardTypeHidden(${Number(summary.type.id)}, false)" class="p-0.5 text-slate-400 hover:text-blue-600" title="이 유형 나타내기" aria-label="이 유형 나타내기"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>`
+      : `<button type="button" onclick="setDashboardTypeHidden(${Number(summary.type.id)}, true)" class="p-0.5 text-slate-300 hover:text-slate-600 dark:text-slate-600 dark:hover:text-slate-300" title="이 유형 숨기기" aria-label="이 유형 숨기기"><i data-lucide="eye-off" class="h-3.5 w-3.5"></i></button>`;
+    return `<tr class="border-t border-slate-100 dark:border-slate-800 ${isHidden ? 'opacity-50' : ''}">
+      <th scope="row" class="py-2 px-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap"><span class="inline-flex items-center gap-1">${rowAction}<span>${escapeHtml(summary.type.name)}</span><span class="ml-1 text-[10px] font-normal text-slate-400">${summary.intervalMonths || '-'}개월</span></span></th>
       ${cells}
     </tr>`;
   }).join('');
@@ -1557,9 +1618,10 @@ function renderTypeMonthlyMatrix() {
     <div class="app-card p-5 space-y-3">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white"><i data-lucide="table-2" class="h-5 w-5 text-blue-500"></i><span>식품유형별 월간 검사 현황</span></h2>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <span class="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400"><span class="inline-block h-3 w-3 rounded-full bg-slate-900 dark:bg-white"></span>완료</span>
           <span class="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400"><span class="inline-block h-3 w-3 rounded-full border-2 border-slate-400 dark:border-slate-500"></span>예정</span>
+          ${toggleButton}
           <div class="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 px-1 py-0.5">
             <button type="button" onclick="setTypeMatrixYear(-1)" class="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="이전 연도"><i data-lucide="chevron-left" class="h-3.5 w-3.5"></i></button>
             <span class="text-xs font-semibold text-slate-700 dark:text-slate-200 px-1">${typeMatrixYear}년</span>
@@ -1579,6 +1641,7 @@ function renderTypeMonthlyMatrix() {
         </table>
       </div>
     </div>`;
+  lucide.createIcons();
 }
 
 function renderHealthMonthlyExpiryChart() {
@@ -1694,13 +1757,16 @@ function renderDashboard() {
   const deadlineFilter = document.getElementById('dash-deadline-select')?.value || 'all';
   const productionFilter = document.getElementById('dash-production-select')?.value || 'all';
 
-  const computedProducts = selectLatestPerType(appState.products.map(product => {
-    const computed = getProductComputed(product);
-    return {
-      ...computed,
-      certificateMissing: computed.productionStatus === 'active' && !hasCurrentCertificate(computed)
-    };
-  }));
+  const hiddenTypeIds = showHiddenTypesInDashboard ? [] : getHiddenTypeIds();
+  const computedProducts = selectLatestPerType(appState.products
+    .filter(product => !hiddenTypeIds.includes(Number(product.typeId)))
+    .map(product => {
+      const computed = getProductComputed(product);
+      return {
+        ...computed,
+        certificateMissing: computed.productionStatus === 'active' && !hasCurrentCertificate(computed)
+      };
+    }));
   if (typeSelect) {
     const previousType = selectedType;
     typeSelect.innerHTML = `<option value="all">전체 식품유형</option>${appState.types.map(type => `<option value="${type.id}">${escapeHtml(type.name)}</option>`).join('')}`;
