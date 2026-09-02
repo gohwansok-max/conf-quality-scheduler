@@ -1,9 +1,9 @@
-const CACHE_NAME = 'koenf-quality-pwa-v30';
+const CACHE_NAME = 'koenf-quality-pwa-v31';
 const APP_SHELL = [
   './',
   './index.html',
   './styles.css?v=202608271172',
-  './app.js?v=202609021015',
+  './app.js?v=202609021045',
   './manifest.webmanifest',
   './pwa-icon.svg',
   './pwa-icon-192.png',

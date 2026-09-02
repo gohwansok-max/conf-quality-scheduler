@@ -2125,14 +2125,40 @@ function renderCertificates() {
   if (!tbody) return;
   renderCertificateWorkspace();
 
-  if (appState.certificates.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">보관된 성적서가 없습니다.</td></tr>`;
-    if (mobileList) mobileList.innerHTML = `<div class="mobile-empty-state"><i data-lucide="file-search" class="w-5 h-5"></i><span>보관된 성적서가 없습니다.</span></div>`;
+  const typeFilterSelect = document.getElementById('certs-type-filter');
+  if (typeFilterSelect) {
+    const previousValue = typeFilterSelect.value || 'all';
+    typeFilterSelect.innerHTML = `<option value="all">전체 식품유형</option>${appState.types.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}<option value="unclassified">유형 미분류</option>`;
+    typeFilterSelect.value = Array.from(typeFilterSelect.options).some(option => option.value === previousValue) ? previousValue : 'all';
+  }
+  const selectedTypeFilter = typeFilterSelect?.value || 'all';
+  const searchKeyword = (document.getElementById('certs-search-input')?.value || '').trim().toLowerCase();
+
+  const certificates = appState.certificates.filter(c => {
+    const classification = getCertificateClassification(c);
+    const typeId = classification.type?.id;
+    if (selectedTypeFilter === 'unclassified' && typeId) return false;
+    if (selectedTypeFilter !== 'all' && selectedTypeFilter !== 'unclassified' && String(typeId || '') !== selectedTypeFilter) return false;
+    if (searchKeyword) {
+      const productName = classification.product ? classification.product.name : '';
+      const typeName = classification.type?.name || '';
+      const haystack = `${c.certNumber || ''} ${productName} ${typeName}`.toLowerCase();
+      if (!haystack.includes(searchKeyword)) return false;
+    }
+    return true;
+  });
+  const filteredCountEl = document.getElementById('certs-filtered-count');
+  if (filteredCountEl) filteredCountEl.textContent = `${certificates.length}건`;
+
+  if (certificates.length === 0) {
+    const message = appState.certificates.length === 0 ? '보관된 성적서가 없습니다.' : '조건에 맞는 성적서가 없습니다.';
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">${message}</td></tr>`;
+    if (mobileList) mobileList.innerHTML = `<div class="mobile-empty-state"><i data-lucide="file-search" class="w-5 h-5"></i><span>${message}</span></div>`;
     lucide.createIcons();
     return;
   }
 
-  tbody.innerHTML = appState.certificates.map(c => {
+  tbody.innerHTML = certificates.map(c => {
     const classification = getCertificateClassification(c);
     const productName = classification.product ? classification.product.name : '유형 공통 / 제품 미연결';
     const typeName = classification.type?.name || '유형 미분류';
@@ -2152,7 +2178,7 @@ function renderCertificates() {
   }).join('');
 
   if (mobileList) {
-    mobileList.innerHTML = appState.certificates.map(c => {
+    mobileList.innerHTML = certificates.map(c => {
       const classification = getCertificateClassification(c);
       const productName = classification.product ? classification.product.name : '유형 공통 / 제품 미연결';
       const typeName = classification.type?.name || '유형 미분류';
