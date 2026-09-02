@@ -180,9 +180,13 @@ tr.table-row-hover:hover {
   .print-only {
     display: block !important;
   }
-  /* 인쇄 시 화면 폭 계산이 좁게 잡혀도 항상 표 형태로 인쇄되도록 강제한다. */
-  #dashboard-table-wrap {
+  /* 인쇄 시 화면 폭 계산이 좁게 잡혀 모바일 카드 UI 규칙(1013번째 줄 부근)이 함께 걸리는 경우가 있어,
+     선택자 우선순위를 높여 항상 표 형태로 인쇄되도록 강제한다. */
+  html body #dashboard-table-wrap {
     display: block !important;
+  }
+  html body #dashboard-mobile-list {
+    display: none !important;
   }
 
   /* 대시보드만 2단 그리드로 압축해 한 페이지에 모두 담는다. */
