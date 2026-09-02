@@ -163,8 +163,8 @@ tr.table-row-hover:hover {
 
 @media print {
   @page {
-    size: A4 landscape;
-    margin: 6mm;
+    size: A4 portrait;
+    margin: 8mm;
   }
   html, body {
     background-color: white !important;
@@ -189,7 +189,7 @@ tr.table-row-hover:hover {
 
   /* 레이아웃은 화면과 동일하게 유지하고, 전체를 축소해 한 페이지에 맞춘다. */
   #view-dashboard {
-    zoom: 0.24;
+    zoom: 0.3;
   }
 
   .app-card {
