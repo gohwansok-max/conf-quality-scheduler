@@ -1445,8 +1445,15 @@ function getRemainingDaysThisMonth() {
 }
 
 function hasCurrentCertificate(product) {
+  // 성적서는 제품 단위가 아니라 식품유형 단위로 등록·분류되는 경우가 대부분이라,
+  // productId만으로 매칭하면 사실상 모든 제품이 미성적서로 오탐된다.
+  // getCertificateClassification의 typeId 분류를 함께 확인한다.
   const relatedCertificates = appState.certificates
-    .filter(certificate => Number(certificate.productId) === Number(product.id) && certificate.inspectionDate)
+    .filter(certificate => {
+      if (!certificate.inspectionDate) return false;
+      if (Number(certificate.productId) === Number(product.id)) return true;
+      return Number(getCertificateClassification(certificate).typeId) === Number(product.typeId);
+    })
     .sort((a, b) => String(b.inspectionDate).localeCompare(String(a.inspectionDate)));
   if (!relatedCertificates.length) return false;
   if (!product.lastManufactureDate) return true;

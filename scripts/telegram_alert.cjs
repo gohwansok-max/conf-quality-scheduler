@@ -188,13 +188,36 @@ async function run() {
     }
   });
 
+  // 성적서는 특정 제품이 아니라 "식품유형" 단위로 등록·분류되는 경우가 대부분이라
+  // (quality_settings의 certificate_metadata_v1에 성적서별 typeId가 저장됨),
+  // product_id만으로 매칭하면 사실상 모든 성적서가 미등록으로 오탐된다.
+  // 성적서의 typeId 분류를 함께 확인해 제품의 식품유형과 일치하면 등록된 것으로 인정한다.
+  let certificateTypeMap = {};
+  const certMetadataSetting = (cloudSettings || []).find(setting => setting.key === 'certificate_metadata_v1')?.value;
+  if (certMetadataSetting) {
+    try {
+      const parsed = JSON.parse(certMetadataSetting);
+      certificateTypeMap = parsed?.records || {};
+    } catch (e) {
+      console.warn('성적서 유형 분류 정보를 읽지 못했습니다:', e.message);
+    }
+  }
+  const getCertificateTypeId = c => {
+    if (c.product_id) {
+      const relatedProduct = products.find(p => Number(p.id) === Number(c.product_id));
+      if (relatedProduct) return Number(relatedProduct.type_id);
+    }
+    const typeId = certificateTypeMap[String(c.id)]?.typeId;
+    return typeId ? Number(typeId) : null;
+  };
+
   // 생산 중이며 알림이 활성화된 제품만 검사합니다.
-  // 제품별로 연결된 성적서 중 가장 최신 검사일이 최근 제조일보다 이전이면 미성적서로 판단합니다.
+  // 같은 식품유형에 등록된 성적서 중 가장 최신 검사일이 최근 제조일보다 이전이면 미성적서로 판단합니다.
   const missingCertificateProducts = [];
   products.forEach(p => {
     if (p.production_status === 'stopped' || p.alert_status === 'paused') return;
     const relatedCertificates = certificates
-      .filter(c => Number(c.product_id) === Number(p.id) && c.inspection_date)
+      .filter(c => c.inspection_date && getCertificateTypeId(c) === Number(p.type_id))
       .sort((a, b) => String(b.inspection_date).localeCompare(String(a.inspection_date)));
     const latestCertificate = relatedCertificates[0];
     const isCurrent = latestCertificate && (!p.last_manufacture_date || String(latestCertificate.inspection_date) >= String(p.last_manufacture_date));
