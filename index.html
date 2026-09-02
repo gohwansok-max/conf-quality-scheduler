@@ -26,7 +26,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=202609021210">
+  <link rel="stylesheet" href="styles.css?v=202609021230">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="pwa-icon-192.png">
   <link rel="apple-touch-icon" sizes="192x192" href="pwa-icon-192.png">
@@ -115,7 +115,7 @@
       </div>
 
       <!-- KPI Summary Cards -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div id="dashboard-kpi-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <div class="app-card p-4 flex flex-col justify-between cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 transition" onclick="setDashboardFilter('all')">
           <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
             <span>전체 관리 품목</span>
@@ -175,7 +175,7 @@
       <div id="type-monthly-matrix"></div>
 
       <!-- Schedule Table Card -->
-      <div class="app-card p-5 space-y-4">
+      <div id="dashboard-schedule-card" class="app-card p-5 space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">

@@ -164,15 +164,15 @@ tr.table-row-hover:hover {
 @media print {
   @page {
     size: A4 landscape;
-    margin: 8mm;
+    margin: 6mm;
   }
-  body {
+  html, body {
     background-color: white !important;
     color: black !important;
-    font-size: 9pt;
+    font-size: 7pt;
+    height: 100%;
   }
   .no-print, header, nav, .modal-overlay, #toast-container, button, .action-column, #tab-nav-container,
-  #dashboard-urgent-banner, #health-expiry-monthly-chart, #type-monthly-matrix,
   .dashboard-quick-filter-row, .dashboard-mobile-filter-panel, #mobile-bulk-toolbar,
   #dash-search-input, #dash-status-select, #dashboard-mobile-list, #dash-filtered-count {
     display: none !important;
@@ -180,19 +180,60 @@ tr.table-row-hover:hover {
   .print-only {
     display: block !important;
   }
-  #view-dashboard, #view-dashboard > div {
-    gap: 6px !important;
+  /* 인쇄 시 화면 폭 계산이 좁게 잡혀도 항상 표 형태로 인쇄되도록 강제한다. */
+  #dashboard-table-wrap {
+    display: block !important;
   }
+
+  /* 대시보드만 2단 그리드로 압축해 한 페이지에 모두 담는다. */
+  #view-dashboard {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-areas:
+      "kpi kpi"
+      "chart matrix"
+      "table table" !important;
+    gap: 4px !important;
+  }
+  #dashboard-urgent-banner { display: none !important; }
+  #dashboard-kpi-grid {
+    grid-area: kpi;
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+    gap: 3px !important;
+  }
+  #health-expiry-monthly-chart { grid-area: chart; overflow: hidden; }
+  #type-monthly-matrix { grid-area: matrix; overflow: hidden; }
+  #dashboard-schedule-card { grid-area: table; }
+
+  #health-expiry-monthly-chart .h-36,
+  #health-expiry-monthly-chart .h-48,
+  #health-expiry-monthly-chart [class*="min-h-"] {
+    height: 26px !important;
+    min-height: 26px !important;
+  }
+  #health-expiry-monthly-chart .grid.grid-cols-2,
+  #health-expiry-monthly-chart .sm\:grid-cols-3,
+  #health-expiry-monthly-chart .lg\:grid-cols-5 {
+    display: none !important;
+  }
+  #type-monthly-matrix .h-3\.5, #type-monthly-matrix .w-3\.5 {
+    height: 5px !important;
+    width: 5px !important;
+  }
+  #type-monthly-matrix table { font-size: 6pt !important; }
+  #type-monthly-matrix th, #type-monthly-matrix td { padding: 1px 2px !important; }
+
   .app-card {
     border: 1px solid #ccc !important;
     box-shadow: none !important;
     break-inside: avoid;
-    margin-bottom: 6px !important;
-    padding: 8px !important;
+    margin-bottom: 0 !important;
+    padding: 5px !important;
   }
   .app-card h2 {
-    font-size: 11pt !important;
-    margin-bottom: 2px !important;
+    font-size: 8pt !important;
+    margin-bottom: 1px !important;
   }
   .app-card p {
     display: none !important;
@@ -200,11 +241,11 @@ tr.table-row-hover:hover {
   table {
     width: 100% !important;
     border-collapse: collapse !important;
-    font-size: 8pt !important;
+    font-size: 7pt !important;
   }
   th, td {
     border: 1px solid #999 !important;
-    padding: 3px 5px !important;
+    padding: 2px 4px !important;
   }
   th {
     background-color: #f3f4f6 !important;
