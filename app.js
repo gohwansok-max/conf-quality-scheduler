@@ -1321,6 +1321,7 @@ let mobileSelectedProductIds = new Set();
 let dashboardFilteredProducts = [];
 let dashboardQuickFilter = 'all';
 let healthMonthlyStatsScope = 'active';
+let typeMatrixYear = Number(getTodayKstStr().slice(0, 4));
 
 function switchTab(tabId) {
   currentTab = tabId;
@@ -1488,6 +1489,98 @@ function getHealthMonthlyExpiryStats(monthCount = 13, scope = healthMonthlyStats
   return { entries: [overdueBucket, ...months], months, summary };
 }
 
+function setTypeMatrixYear(delta) {
+  typeMatrixYear += delta;
+  renderTypeMonthlyMatrix();
+}
+
+// 식품유형별 검사주기(기준일 + N개월 반복)를 해당 연도의 12개월에 투영해
+// 완료(검정 원)/예정(빈 원) 상태를 계산한다.
+function getTypeMatrixMonthStates(summary, year) {
+  const states = Array(12).fill('');
+  summary.certificates.forEach(certificate => {
+    const inspectionDate = certificate.inspectionDate;
+    if (!inspectionDate || !inspectionDate.startsWith(String(year))) return;
+    const month = Number(inspectionDate.slice(5, 7)) - 1;
+    if (month >= 0 && month < 12) states[month] = 'done';
+  });
+
+  const interval = Number(summary.intervalMonths || 0);
+  if (summary.manufactureDate && interval > 0) {
+    const anchor = new Date(summary.manufactureDate);
+    const yearStart = new Date(year, 0, 1);
+    const yearEnd = new Date(year, 11, 31);
+    const cursor = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
+    while (cursor > yearStart) cursor.setMonth(cursor.getMonth() - interval);
+    let safety = 0;
+    while (cursor <= yearEnd && safety < 200) {
+      if (cursor.getFullYear() === year && states[cursor.getMonth()] !== 'done') {
+        states[cursor.getMonth()] = 'due';
+      }
+      cursor.setMonth(cursor.getMonth() + interval);
+      safety += 1;
+    }
+  }
+  return states;
+}
+
+function renderTypeMonthlyMatrix() {
+  const target = document.getElementById('type-monthly-matrix');
+  if (!target) return;
+
+  const summaries = getTypeInspectionSummaries();
+  const monthLabels = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+
+  if (summaries.length === 0) {
+    target.innerHTML = `
+      <div class="app-card p-5">
+        <h2 class="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white"><i data-lucide="table-2" class="h-5 w-5 text-blue-500"></i><span>식품유형별 월간 검사 현황</span></h2>
+        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">등록된 식품유형이 없습니다.</p>
+      </div>`;
+    return;
+  }
+
+  const rows = summaries.map(summary => {
+    const states = getTypeMatrixMonthStates(summary, typeMatrixYear);
+    const cells = states.map((state, index) => {
+      if (state === 'done') return `<td class="py-2 px-1 text-center" title="${monthLabels[index]} 검사 완료"><span class="inline-block h-3.5 w-3.5 rounded-full bg-slate-900 dark:bg-white"></span></td>`;
+      if (state === 'due') return `<td class="py-2 px-1 text-center" title="${monthLabels[index]} 검사 예정"><span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-slate-400 dark:border-slate-500"></span></td>`;
+      return `<td class="py-2 px-1 text-center"><span class="inline-block h-1 w-1 rounded-full bg-slate-200 dark:bg-slate-700"></span></td>`;
+    }).join('');
+    return `<tr class="border-t border-slate-100 dark:border-slate-800">
+      <th scope="row" class="py-2 px-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">${escapeHtml(summary.type.name)}<span class="ml-1 text-[10px] font-normal text-slate-400">${summary.intervalMonths || '-'}개월</span></th>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  target.innerHTML = `
+    <div class="app-card p-5 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white"><i data-lucide="table-2" class="h-5 w-5 text-blue-500"></i><span>식품유형별 월간 검사 현황</span></h2>
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400"><span class="inline-block h-3 w-3 rounded-full bg-slate-900 dark:bg-white"></span>완료</span>
+          <span class="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400"><span class="inline-block h-3 w-3 rounded-full border-2 border-slate-400 dark:border-slate-500"></span>예정</span>
+          <div class="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 px-1 py-0.5">
+            <button type="button" onclick="setTypeMatrixYear(-1)" class="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="이전 연도"><i data-lucide="chevron-left" class="h-3.5 w-3.5"></i></button>
+            <span class="text-xs font-semibold text-slate-700 dark:text-slate-200 px-1">${typeMatrixYear}년</span>
+            <button type="button" onclick="setTypeMatrixYear(1)" class="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="다음 연도"><i data-lucide="chevron-right" class="h-3.5 w-3.5"></i></button>
+          </div>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[640px] text-xs">
+          <thead>
+            <tr class="text-[10px] text-slate-400 dark:text-slate-500">
+              <th class="py-1 px-3 text-left">식품유형</th>
+              ${monthLabels.map(label => `<th class="py-1 px-1 text-center font-medium">${label}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
 function renderHealthMonthlyExpiryChart() {
   const chart = document.getElementById('health-expiry-monthly-chart');
   if (!chart) return;
@@ -1615,6 +1708,7 @@ function renderDashboard() {
   }
   const computedHealth = appState.healthCerts.map(getHealthCertComputed);
   renderHealthMonthlyExpiryChart();
+  renderTypeMonthlyMatrix();
   updateDashboardQuickFilters();
 
   const totalCount = computedProducts.length;
@@ -1743,7 +1837,7 @@ function renderDashboard() {
 }
 
 function updateProductManagementFilters() {
-  renderProductManagementWorkspace();
+  renderProducts();
 }
 
 function resetProductManagementFilters() {
@@ -1753,7 +1847,7 @@ function resetProductManagementFilters() {
   if (query) query.value = '';
   if (type) type.value = 'all';
   if (status) status.value = 'all';
-  renderProductManagementWorkspace();
+  renderProducts();
 }
 
 // 제품 검색/식품유형/상태 필터를 카드 목록과 아래 표에서 함께 사용한다.
