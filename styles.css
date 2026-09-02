@@ -162,30 +162,49 @@ tr.table-row-hover:hover {
 }
 
 @media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
   body {
     background-color: white !important;
     color: black !important;
-    font-size: 10pt;
+    font-size: 9pt;
   }
-  .no-print, header, nav, .modal-overlay, #toast-container, button, .action-column, #tab-nav-container {
+  .no-print, header, nav, .modal-overlay, #toast-container, button, .action-column, #tab-nav-container,
+  #dashboard-urgent-banner, #health-expiry-monthly-chart, #type-monthly-matrix,
+  .dashboard-quick-filter-row, .dashboard-mobile-filter-panel, #mobile-bulk-toolbar,
+  #dash-search-input, #dash-status-select, #dashboard-mobile-list, #dash-filtered-count {
     display: none !important;
   }
   .print-only {
     display: block !important;
   }
+  #view-dashboard, #view-dashboard > div {
+    gap: 6px !important;
+  }
   .app-card {
     border: 1px solid #ccc !important;
     box-shadow: none !important;
     break-inside: avoid;
-    margin-bottom: 15px !important;
+    margin-bottom: 6px !important;
+    padding: 8px !important;
+  }
+  .app-card h2 {
+    font-size: 11pt !important;
+    margin-bottom: 2px !important;
+  }
+  .app-card p {
+    display: none !important;
   }
   table {
     width: 100% !important;
     border-collapse: collapse !important;
+    font-size: 8pt !important;
   }
   th, td {
     border: 1px solid #999 !important;
-    padding: 6px 8px !important;
+    padding: 3px 5px !important;
   }
   th {
     background-color: #f3f4f6 !important;
