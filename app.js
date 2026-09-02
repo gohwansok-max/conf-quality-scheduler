@@ -1573,6 +1573,22 @@ function renderHealthMonthlyExpiryChart() {
     </div>`;
 }
 
+// 식품유형별로 검사주기를 관리하기 때문에, 같은 유형에 속한 제품이 여러 개라도
+// 대시보드에는 최근 제조(검사)일이 가장 늦은 대표 제품 1건만 표시한다.
+// 유형이 지정되지 않은 제품은 그룹화하지 않고 모두 표시한다.
+function selectLatestPerType(products) {
+  const byType = new Map();
+  const withoutType = [];
+  products.forEach(product => {
+    if (!product.typeId) { withoutType.push(product); return; }
+    const existing = byType.get(product.typeId);
+    if (!existing || String(product.lastManufactureDate || '') > String(existing.lastManufactureDate || '')) {
+      byType.set(product.typeId, product);
+    }
+  });
+  return [...byType.values(), ...withoutType];
+}
+
 function renderDashboard() {
   const tbody = document.getElementById('dashboard-table-body');
   const mobileList = document.getElementById('dashboard-mobile-list');
@@ -1585,13 +1601,13 @@ function renderDashboard() {
   const deadlineFilter = document.getElementById('dash-deadline-select')?.value || 'all';
   const productionFilter = document.getElementById('dash-production-select')?.value || 'all';
 
-  const computedProducts = appState.products.map(product => {
+  const computedProducts = selectLatestPerType(appState.products.map(product => {
     const computed = getProductComputed(product);
     return {
       ...computed,
       certificateMissing: computed.productionStatus === 'active' && !hasCurrentCertificate(computed)
     };
-  });
+  }));
   if (typeSelect) {
     const previousType = selectedType;
     typeSelect.innerHTML = `<option value="all">전체 식품유형</option>${appState.types.map(type => `<option value="${type.id}">${escapeHtml(type.name)}</option>`).join('')}`;

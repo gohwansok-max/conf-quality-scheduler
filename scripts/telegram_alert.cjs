@@ -138,6 +138,21 @@ async function run() {
     { id: 4, employee_name: '최개발', department: '연구소', issued_at: '2026-03-20', expires_at: '2027-03-20', employment_status: 'active', alert_status: 'active' }
   ];
   const certificates = cloudCertificates || [];
+
+  // 식품유형별로 검사주기를 관리하므로, 같은 유형에 속한 제품이 여러 개라도
+  // 최근 제조일이 가장 늦은 대표 제품 1건만 알림 대상으로 삼는다.
+  // 유형이 지정되지 않은 제품은 그룹화하지 않고 모두 포함한다.
+  const latestByType = new Map();
+  const productsWithoutType = [];
+  products.forEach(p => {
+    if (!p.type_id) { productsWithoutType.push(p); return; }
+    const existing = latestByType.get(p.type_id);
+    if (!existing || String(p.last_manufacture_date || '') > String(existing.last_manufacture_date || '')) {
+      latestByType.set(p.type_id, p);
+    }
+  });
+  products = [...latestByType.values(), ...productsWithoutType];
+
   const storedHealthAlertDays = (cloudSettings || []).find(setting => setting.key === 'health_alert_days')?.value;
   const healthAlertDays = normalizeHealthAlertDays(storedHealthAlertDays || process.env.HEALTH_ALERT_DAYS || DEFAULT_HEALTH_ALERT_DAYS);
   const healthAlertDaysLabel = healthAlertDays.map(day => `D-${day}`).join(' · ');
