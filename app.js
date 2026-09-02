@@ -1756,24 +1756,31 @@ function resetProductManagementFilters() {
   renderProductManagementWorkspace();
 }
 
-function renderProductManagementWorkspace() {
-  const target = document.getElementById('product-manager-list');
+// 제품 검색/식품유형/상태 필터를 카드 목록과 아래 표에서 함께 사용한다.
+function getFilteredManagedProducts() {
   const typeFilter = document.getElementById('product-manager-type');
   const statusFilter = document.getElementById('product-manager-status');
   const queryInput = document.getElementById('product-manager-query');
-  const count = document.getElementById('product-manager-count');
-  if (!target || !typeFilter || !statusFilter || !queryInput) return;
+  if (!typeFilter || !statusFilter || !queryInput) return appState.products.map(getProductComputed);
 
   const selectedType = typeFilter.value || 'all';
   typeFilter.innerHTML = `<option value="all">전체 유형</option>${appState.types.map(type => `<option value="${type.id}">${escapeHtml(type.name)}</option>`).join('')}`;
   typeFilter.value = [...typeFilter.options].some(option => option.value === selectedType) ? selectedType : 'all';
   const query = normalizeDataExcelText(queryInput.value).toLocaleLowerCase('ko-KR');
-  const products = appState.products.map(getProductComputed).filter(product => {
+  return appState.products.map(getProductComputed).filter(product => {
     const matchesQuery = !query || normalizeDataExcelText(product.name).toLocaleLowerCase('ko-KR').includes(query);
     const matchesType = typeFilter.value === 'all' || Number(product.typeId) === Number(typeFilter.value);
     const matchesStatus = statusFilter.value === 'all' || product.productionStatus === statusFilter.value;
     return matchesQuery && matchesType && matchesStatus;
   }).sort((left, right) => String(left.nextDeadline || '9999-12-31').localeCompare(String(right.nextDeadline || '9999-12-31')));
+}
+
+function renderProductManagementWorkspace() {
+  const target = document.getElementById('product-manager-list');
+  const count = document.getElementById('product-manager-count');
+  if (!target) return;
+
+  const products = getFilteredManagedProducts();
 
   if (count) count.textContent = `총 ${appState.products.length}건 중 ${products.length}건 표시`;
   if (!products.length) {
@@ -1817,10 +1824,11 @@ function renderProducts() {
   const tbody = document.getElementById('products-table-body');
   if (!tbody) return;
 
-  const computedProducts = appState.products.map(getProductComputed);
   renderProductManagementWorkspace();
+  const computedProducts = getFilteredManagedProducts();
   if (computedProducts.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-400">등록된 제품이 없습니다. 새 제품을 추가하세요.</td></tr>`;
+    const message = appState.products.length === 0 ? '등록된 제품이 없습니다. 새 제품을 추가하세요.' : '조건에 맞는 제품이 없습니다.';
+    tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-400">${message}</td></tr>`;
     return;
   }
 
