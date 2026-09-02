@@ -1324,6 +1324,37 @@ let healthMonthlyStatsScope = 'active';
 let typeMatrixYear = Number(getTodayKstStr().slice(0, 4));
 let showHiddenTypesInDashboard = false;
 const DASHBOARD_HIDDEN_TYPES_KEY = 'dashboard_hidden_type_ids';
+const DASHBOARD_MAIN_PRODUCT_KEY = 'dashboard_main_product_by_type';
+
+function getMainProductByTypeMap() {
+  try {
+    const raw = appState.settings?.[DASHBOARD_MAIN_PRODUCT_KEY];
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+async function setMainProductForType(typeId, productId) {
+  const map = getMainProductByTypeMap();
+  if (productId) map[String(typeId)] = Number(productId);
+  else delete map[String(typeId)];
+  const value = JSON.stringify(map);
+  appState.settings[DASHBOARD_MAIN_PRODUCT_KEY] = value;
+  saveLocalState();
+  renderDashboard();
+  if (supabaseClient && isCloudConnected) {
+    try {
+      const { error } = await supabaseClient.from('quality_settings').upsert([{ key: DASHBOARD_MAIN_PRODUCT_KEY, value }], { onConflict: 'key' });
+      if (error) throw error;
+      showToast('대시보드 메인 제품이 저장되었습니다.', 'success');
+    } catch (error) {
+      console.error('메인 제품 설정 저장 실패:', error);
+      showToast(getCloudDeleteErrorMessage(error, '메인 제품 설정'), 'error');
+    }
+  }
+}
 
 function getHiddenTypeIds() {
   try {
@@ -1733,14 +1764,22 @@ function renderHealthMonthlyExpiryChart() {
 // 대시보드에는 최근 제조(검사)일이 가장 늦은 대표 제품 1건만 표시한다.
 // 유형이 지정되지 않은 제품은 그룹화하지 않고 모두 표시한다.
 function selectLatestPerType(products) {
+  const mainProductMap = getMainProductByTypeMap();
   const byType = new Map();
   const withoutType = [];
+  const productsByTypeAndId = new Map();
   products.forEach(product => {
     if (!product.typeId) { withoutType.push(product); return; }
+    productsByTypeAndId.set(`${product.typeId}:${product.id}`, product);
     const existing = byType.get(product.typeId);
     if (!existing || String(product.lastManufactureDate || '') > String(existing.lastManufactureDate || '')) {
       byType.set(product.typeId, product);
     }
+  });
+  // 사용자가 식품유형 관리에서 직접 지정한 메인 제품이 있으면 최근 제조일과 무관하게 그 제품을 대표로 사용한다.
+  Object.entries(mainProductMap).forEach(([typeId, productId]) => {
+    const pinned = productsByTypeAndId.get(`${typeId}:${productId}`);
+    if (pinned) byType.set(Number(typeId), pinned);
   });
   return [...byType.values(), ...withoutType];
 }
@@ -2035,18 +2074,27 @@ function renderTypes() {
   if (!tbody) return;
 
   if (appState.types.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-400">등록된 식품유형이 없습니다.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400">등록된 식품유형이 없습니다.</td></tr>`;
     return;
   }
 
+  const mainProductMap = getMainProductByTypeMap();
   tbody.innerHTML = appState.types.map(t => {
-    const prodCount = appState.products.filter(p => p.typeId === t.id).length;
+    const typeProducts = appState.products.filter(p => Number(p.typeId) === Number(t.id));
+    const prodCount = typeProducts.length;
+    const selectedMainId = mainProductMap[String(t.id)];
+    const mainOptions = `<option value="">자동(최근 제조일 순)</option>${typeProducts.map(p => `<option value="${p.id}" ${Number(selectedMainId) === Number(p.id) ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}`;
     return `
       <tr class="table-row-hover transition">
         <td class="py-3 px-4 font-bold text-slate-900 dark:text-white"><span class="table-text-two-lines" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</span></td>
         <td class="py-3 px-4 font-semibold text-blue-600 dark:text-blue-400">${t.intervalMonths}개월</td>
         <td class="py-3 px-4 text-slate-600 dark:text-slate-300"><span class="table-text-two-lines" title="${escapeHtml(t.testItems || '-')}">${escapeHtml(t.testItems || '-')}</span></td>
         <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">${prodCount}개 제품</span></td>
+        <td class="py-3 px-4">
+          ${prodCount
+            ? `<select onchange="setMainProductForType(${t.id}, this.value)" class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">${mainOptions}</select>`
+            : `<span class="text-xs text-slate-400">제품 없음</span>`}
+        </td>
         <td class="py-3 px-4 text-right action-column">
           <div class="flex items-center justify-end gap-1.5">
             <button onclick="openEditTypeModal(${t.id})" class="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" title="수정">

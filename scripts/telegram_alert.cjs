@@ -144,13 +144,28 @@ async function run() {
   // 유형이 지정되지 않은 제품은 그룹화하지 않고 모두 포함한다.
   const latestByType = new Map();
   const productsWithoutType = [];
+  const productsByTypeAndId = new Map();
   products.forEach(p => {
     if (!p.type_id) { productsWithoutType.push(p); return; }
+    productsByTypeAndId.set(`${p.type_id}:${p.id}`, p);
     const existing = latestByType.get(p.type_id);
     if (!existing || String(p.last_manufacture_date || '') > String(existing.last_manufacture_date || '')) {
       latestByType.set(p.type_id, p);
     }
   });
+  // 앱의 "식품유형 관리"에서 사용자가 직접 지정한 메인 제품이 있으면 최근 제조일과 무관하게 그 제품을 대표로 사용한다.
+  const mainProductSetting = (cloudSettings || []).find(setting => setting.key === 'dashboard_main_product_by_type')?.value;
+  if (mainProductSetting) {
+    try {
+      const mainProductMap = JSON.parse(mainProductSetting);
+      Object.entries(mainProductMap).forEach(([typeId, productId]) => {
+        const pinned = productsByTypeAndId.get(`${typeId}:${productId}`);
+        if (pinned) latestByType.set(Number(typeId), pinned);
+      });
+    } catch (e) {
+      console.warn('메인 제품 설정을 읽지 못했습니다:', e.message);
+    }
+  }
   products = [...latestByType.values(), ...productsWithoutType];
 
   const storedHealthAlertDays = (cloudSettings || []).find(setting => setting.key === 'health_alert_days')?.value;
